@@ -29,6 +29,7 @@ func TestAnalyzeRepository(t *testing.T) {
 		"go.mod",
 		"package.json",
 		"Dockerfile",
+		"Chart.yaml",
 	}
 
 	for _, f := range files {
@@ -48,7 +49,7 @@ func TestAnalyzeRepository(t *testing.T) {
 		t.Errorf("Expected project name %s, got %s", filepath.Base(tempDir), p.Name)
 	}
 
-	expectedTechs := []string{"Go", "Node.js", "Docker"}
+	expectedTechs := []string{"Go", "Node.js", "Docker", "Helm"}
 
 	sort.Strings(expectedTechs)
 	sort.Strings(p.Technologies)
@@ -76,6 +77,8 @@ func TestSpringBootDetection(t *testing.T) {
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
+		<!-- test copyleft -->
+		<license>GPL</license>
 	`), 0644)
 	os.WriteFile(filepath.Join(tempDir, "Controller.java"), []byte(`
 		import org.springframework.web.bind.annotation.RestController;
@@ -196,7 +199,7 @@ func TestAnalyzeEndToEnd(t *testing.T) {
 		t.Fatalf("Failed to init git: %v", err)
 	}
 
-	os.WriteFile(filepath.Join(proj1, "go.mod"), []byte("module service1"), 0644)
+	os.WriteFile(filepath.Join(proj1, "go.mod"), []byte("module service1\n// license: AGPL"), 0644)
 	os.WriteFile(filepath.Join(proj2, "package.json"), []byte("{}"), 0644)
 	os.WriteFile(filepath.Join(proj1, "config.yaml"), []byte("url: http://service2/api"), 0644)
 
@@ -229,5 +232,16 @@ func TestAnalyzeEndToEnd(t *testing.T) {
 
 	if len(p1.Dependencies) != 1 || p1.Dependencies[0] != "service2" {
 		t.Errorf("service1 dependencies incorrect: %v", p1.Dependencies)
+	}
+
+	// Test heuristic license scan
+	foundAGPL := false
+	for _, lic := range secReport.CopyleftLicenses {
+		if lic.License == "AGPL" {
+			foundAGPL = true
+		}
+	}
+	if !foundAGPL {
+		t.Errorf("Expected AGPL license to be found by heuristic, got %v", secReport.CopyleftLicenses)
 	}
 }

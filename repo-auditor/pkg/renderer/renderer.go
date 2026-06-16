@@ -58,8 +58,8 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 	// Section 3: Security Report
 	file.WriteString("## Rapport de Sécurité Flash\n\n")
 
-	if secReport == nil || (secReport.CriticalCount == 0 && secReport.HighCount == 0 && secReport.MediumCount == 0 && len(secReport.GitleaksSecrets) == 0 && len(secReport.HadolintIssues) == 0 && !secReport.HadolintSkipped) {
-		file.WriteString("*Aucune vulnérabilité ou problème détecté, ou Trivy/Gitleaks/Hadolint non disponibles.*\n")
+	if secReport == nil || (secReport.CriticalCount == 0 && secReport.HighCount == 0 && secReport.MediumCount == 0 && len(secReport.GitleaksSecrets) == 0 && len(secReport.HadolintIssues) == 0 && len(secReport.KubeLinterIssues) == 0 && len(secReport.CopyleftLicenses) == 0 && !secReport.HadolintSkipped && !secReport.KubeLinterSkipped) {
+		file.WriteString("*Aucune vulnérabilité ou problème détecté, ou outils non disponibles.*\n")
 		return nil
 	}
 
@@ -116,6 +116,30 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 		file.WriteString("\n")
 	} else {
 		file.WriteString("*Aucun problème Dockerfile détecté.*\n\n")
+	}
+
+	file.WriteString("### Linting Helm (Kube-Linter)\n\n")
+	if secReport.KubeLinterSkipped {
+		file.WriteString("*kube-linter non installé - Analyse Helm ignorée*\n\n")
+	} else if len(secReport.KubeLinterIssues) > 0 {
+		file.WriteString("| Fichier | Check (Probes/Limits) | Message |\n")
+		file.WriteString("|---------|-----------------------|---------|\n")
+		for _, k := range secReport.KubeLinterIssues {
+			file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", k.File, k.Check, k.Message))
+		}
+		file.WriteString("\n")
+	} else {
+		file.WriteString("*Aucun problème de Probes ou de Limites détecté.*\n\n")
+	}
+
+	if len(secReport.CopyleftLicenses) > 0 {
+		file.WriteString("### Alertes de Licences (SCA)\n\n")
+		file.WriteString("| Fichier (go.mod/pom.xml) | Dépendance | Licence Détectée |\n")
+		file.WriteString("|--------------------------|------------|------------------|\n")
+		for _, l := range secReport.CopyleftLicenses {
+			file.WriteString(fmt.Sprintf("| %s | %s | **%s** |\n", l.File, l.Dependency, l.License))
+		}
+		file.WriteString("\n")
 	}
 
 	return nil

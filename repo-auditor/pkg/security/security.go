@@ -2,10 +2,13 @@ package security
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
@@ -13,14 +16,17 @@ import (
 )
 
 type SecurityReport struct {
-	CriticalCount   int
-	HighCount       int
-	MediumCount     int
-	TopVulns        []Vulnerability
-	SecretsAndIaC   []SecretOrIaC
-	HadolintSkipped bool
-	GitleaksSecrets []GitleaksFinding
-	HadolintIssues  []HadolintFinding
+	CriticalCount    int
+	HighCount        int
+	MediumCount      int
+	TopVulns         []Vulnerability
+	SecretsAndIaC    []SecretOrIaC
+	HadolintSkipped  bool
+	KubeLinterSkipped bool
+	GitleaksSecrets  []GitleaksFinding
+	HadolintIssues   []HadolintFinding
+	KubeLinterIssues []KubeLinterFinding
+	CopyleftLicenses []CopyleftLicense
 }
 
 type Vulnerability struct {
@@ -49,6 +55,18 @@ type HadolintFinding struct {
 	Code     string
 	Level    string
 	Message  string
+}
+
+type KubeLinterFinding struct {
+	File    string
+	Check   string
+	Message string
+}
+
+type CopyleftLicense struct {
+	File       string
+	Dependency string
+	License    string
 }
 
 type TrivyOutput struct {
@@ -164,11 +182,8 @@ func parseTrivyReport(trivyOut *TrivyOutput, rep *SecurityReport) {
 func RunGitleaksScan(repoPath string, reportOut *SecurityReport) {
 	viperCfg := config.ViperConfig{}
 	viperCfg.Translate()
-
 	cfg, _ := viperCfg.Translate()
-
 	detector := detect.NewDetector(cfg)
-
 	scanTargets := make(chan sources.ScanTarget, 100)
 
 	go func() {
@@ -220,6 +235,71 @@ func RunHadolintScan(dockerfilePath string, repoName string, report *SecurityRep
 				Level:   issue.Level,
 				Message: issue.Message,
 			})
+		}
+	}
+}
+
+func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport) {
+	_, err := exec.LookPath("kube-linter")
+	if err != nil {
+		report.KubeLinterSkipped = true
+		return
+	}
+
+	cmd := exec.Command("kube-linter", "lint", "--format", "json", repoPath)
+	out, _ := cmd.Output()
+
+	var klOutput struct {
+		Reports []struct {
+			FilePath   string `json:"FilePath"`
+			Diagnostic struct {
+				Message string `json:"Message"`
+			} `json:"Diagnostic"`
+			Check string `json:"Check"`
+		} `json:"Reports"`
+	}
+
+	if err := json.Unmarshal(out, &klOutput); err == nil {
+		for _, rep := range klOutput.Reports {
+			checkName := strings.ToLower(rep.Check)
+			if strings.Contains(checkName, "probe") || strings.Contains(checkName, "limit") || strings.Contains(checkName, "request") {
+				report.KubeLinterIssues = append(report.KubeLinterIssues, KubeLinterFinding{
+					File:    filepath.Join(repoName, filepath.Base(rep.FilePath)),
+					Check:   rep.Check,
+					Message: rep.Diagnostic.Message,
+				})
+			}
+		}
+	}
+}
+
+func RunLicenseScan(filePath string, repoName string, isPom bool, report *SecurityReport) {
+	// Simple heuristic extraction: looks for copyleft license identifiers inside dependency definitions.
+	// In reality, this requires a dependency graph and API lookups.
+	// For this local scanner, we use a basic regex search simulating SCA.
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return
+	}
+	content := string(data)
+
+	// Very rudimentary heuristic: Search for common copyleft words. If found in file, flag it.
+	// A robust solution uses Trivy or similar.
+	copyleftRegex := regexp.MustCompile(`(?i)(GPL|AGPL|GNU General Public License)`)
+	matches := copyleftRegex.FindAllStringSubmatch(content, -1)
+
+	if len(matches) > 0 {
+		seen := make(map[string]bool)
+		for _, match := range matches {
+			lic := strings.ToUpper(match[1])
+			if !seen[lic] {
+				seen[lic] = true
+				report.CopyleftLicenses = append(report.CopyleftLicenses, CopyleftLicense{
+					File:       filepath.Join(repoName, filepath.Base(filePath)),
+					Dependency: "Unknown (Heuristic)",
+					License:    lic,
+				})
+			}
 		}
 	}
 }

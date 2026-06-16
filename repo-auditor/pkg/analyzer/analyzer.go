@@ -92,11 +92,36 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 						security.RunHadolintScan(dockerfilePath, p.Name, &localReport)
 					}
 
+					// Check Helm and trigger kube-linter
+					chartPath := filepath.Join(path, "Chart.yaml")
+					templatesPath := filepath.Join(path, "templates")
+					_, errChart := os.Stat(chartPath)
+					_, errTemplates := os.Stat(templatesPath)
+					if errChart == nil || errTemplates == nil {
+						security.RunKubeLinterScan(path, p.Name, &localReport)
+					}
+
+					// Check go.mod and pom.xml for licenses
+					goModPath := filepath.Join(path, "go.mod")
+					if _, err := os.Stat(goModPath); err == nil {
+						security.RunLicenseScan(goModPath, p.Name, false, &localReport)
+					}
+					pomPath := filepath.Join(path, "pom.xml")
+					if _, err := os.Stat(pomPath); err == nil {
+						security.RunLicenseScan(pomPath, p.Name, true, &localReport)
+					}
+
 					mu.Lock()
 					secReport.GitleaksSecrets = append(secReport.GitleaksSecrets, localReport.GitleaksSecrets...)
 					secReport.HadolintIssues = append(secReport.HadolintIssues, localReport.HadolintIssues...)
+					secReport.KubeLinterIssues = append(secReport.KubeLinterIssues, localReport.KubeLinterIssues...)
+					secReport.CopyleftLicenses = append(secReport.CopyleftLicenses, localReport.CopyleftLicenses...)
+
 					if localReport.HadolintSkipped {
 						secReport.HadolintSkipped = true
+					}
+					if localReport.KubeLinterSkipped {
+						secReport.KubeLinterSkipped = true
 					}
 					mu.Unlock()
 				}
