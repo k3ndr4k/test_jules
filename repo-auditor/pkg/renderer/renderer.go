@@ -58,7 +58,7 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 	// Section 3: Security Report
 	file.WriteString("## Rapport de Sécurité Flash\n\n")
 
-	if secReport == nil || (secReport.CriticalCount == 0 && secReport.HighCount == 0 && secReport.MediumCount == 0 && len(secReport.GitleaksSecrets) == 0 && len(secReport.HadolintIssues) == 0 && len(secReport.KubeLinterIssues) == 0 && len(secReport.CopyleftLicenses) == 0 && !secReport.HadolintSkipped && !secReport.KubeLinterSkipped) {
+	if secReport == nil || (secReport.CriticalCount == 0 && secReport.HighCount == 0 && secReport.MediumCount == 0 && len(secReport.GitleaksSecrets) == 0 && len(secReport.HadolintIssues) == 0 && len(secReport.KubeLinterIssues) == 0 && len(secReport.CopyleftLicenses) == 0 && len(secReport.CycloComplexities) == 0 && !secReport.HadolintSkipped && !secReport.KubeLinterSkipped && !secReport.GocycloSkipped) {
 		file.WriteString("*Aucune vulnérabilité ou problème détecté, ou outils non disponibles.*\n")
 		return nil
 	}
@@ -118,28 +118,49 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 		file.WriteString("*Aucun problème Dockerfile détecté.*\n\n")
 	}
 
-	file.WriteString("### Linting Helm (Kube-Linter)\n\n")
+	file.WriteString("## 📊 Conformité & Production (Kube-Linter)\n\n")
 	if secReport.KubeLinterSkipped {
-		file.WriteString("*kube-linter non installé - Analyse Helm ignorée*\n\n")
+		file.WriteString("*kube-linter non installé - Analyse ignorée*\n\n")
 	} else if len(secReport.KubeLinterIssues) > 0 {
-		file.WriteString("| Fichier | Check (Probes/Limits) | Message |\n")
-		file.WriteString("|---------|-----------------------|---------|\n")
+		file.WriteString("| Composant Helm | Règle Violée | Recommandation |\n")
+		file.WriteString("|----------------|--------------|----------------|\n")
 		for _, k := range secReport.KubeLinterIssues {
-			file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", k.File, k.Check, k.Message))
+			file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", k.File, k.Check, k.Remediation))
 		}
 		file.WriteString("\n")
 	} else {
 		file.WriteString("*Aucun problème de Probes ou de Limites détecté.*\n\n")
 	}
 
+	file.WriteString("## ⚖️ Conformité des Licences Open Source\n\n")
 	if len(secReport.CopyleftLicenses) > 0 {
-		file.WriteString("### Alertes de Licences (SCA)\n\n")
-		file.WriteString("| Fichier (go.mod/pom.xml) | Dépendance | Licence Détectée |\n")
-		file.WriteString("|--------------------------|------------|------------------|\n")
+		file.WriteString("| Dépendance | Langage | Licence | Statut |\n")
+		file.WriteString("|------------|---------|---------|--------|\n")
 		for _, l := range secReport.CopyleftLicenses {
-			file.WriteString(fmt.Sprintf("| %s | %s | **%s** |\n", l.File, l.Dependency, l.License))
+			file.WriteString(fmt.Sprintf("| %s | %s | %s | **%s** |\n", l.Dependency, l.Language, l.License, l.Status))
 		}
 		file.WriteString("\n")
+	} else {
+		file.WriteString("*Aucun problème de licence détecté.*\n\n")
+	}
+
+	file.WriteString("## 📉 Dette Technique & Complexité\n\n")
+	if secReport.GocycloSkipped {
+		file.WriteString("*gocyclo non installé - Analyse AST native fallback utilisée*\n\n")
+	}
+	if len(secReport.CycloComplexities) > 0 {
+		file.WriteString("| Fichier | Fonction | Score de Complexité |\n")
+		file.WriteString("|---------|----------|---------------------|\n")
+		for _, c := range secReport.CycloComplexities {
+			alert := ""
+			if c.Score > 15 {
+				alert = " ⚠️"
+			}
+			file.WriteString(fmt.Sprintf("| %s | %s | %d%s |\n", c.File, c.Function, c.Score, alert))
+		}
+		file.WriteString("\n")
+	} else {
+		file.WriteString("*Aucun code source complexe analysé.*\n\n")
 	}
 
 	return nil

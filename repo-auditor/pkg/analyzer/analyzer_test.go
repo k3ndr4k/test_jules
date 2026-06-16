@@ -73,12 +73,19 @@ func TestSpringBootDetection(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	os.WriteFile(filepath.Join(tempDir, "pom.xml"), []byte(`
+<project>
+	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
-		<!-- test copyleft -->
-		<license>GPL</license>
+	</dependencies>
+	<licenses>
+		<license>
+			<name>GPL</name>
+		</license>
+	</licenses>
+</project>
 	`), 0644)
 	os.WriteFile(filepath.Join(tempDir, "Controller.java"), []byte(`
 		import org.springframework.web.bind.annotation.RestController;
@@ -202,6 +209,16 @@ func TestAnalyzeEndToEnd(t *testing.T) {
 	os.WriteFile(filepath.Join(proj1, "go.mod"), []byte("module service1\n// license: AGPL"), 0644)
 	os.WriteFile(filepath.Join(proj2, "package.json"), []byte("{}"), 0644)
 	os.WriteFile(filepath.Join(proj1, "config.yaml"), []byte("url: http://service2/api"), 0644)
+	os.WriteFile(filepath.Join(proj1, "main.go"), []byte(`
+package main
+func main() {
+	if true {
+		if false || true {
+			for i := 0; i < 10; i++ {}
+		}
+	}
+}
+	`), 0644)
 
 	a := NewAnalyzer(tempDir, 2)
 	projects, secReport, err := a.Analyze()
@@ -235,13 +252,27 @@ func TestAnalyzeEndToEnd(t *testing.T) {
 	}
 
 	// Test heuristic license scan
-	foundAGPL := false
+	foundCopyleft := false
 	for _, lic := range secReport.CopyleftLicenses {
-		if lic.License == "AGPL" {
-			foundAGPL = true
+		if lic.Status == "RISQUE CRITIQUE (Copyleft)" {
+			foundCopyleft = true
 		}
 	}
-	if !foundAGPL {
-		t.Errorf("Expected AGPL license to be found by heuristic, got %v", secReport.CopyleftLicenses)
+	if !foundCopyleft {
+		t.Errorf("Expected Copyleft license to be found by heuristic, got %v", secReport.CopyleftLicenses)
+	}
+
+	// Test fallback cyclo complexity
+	if len(secReport.CycloComplexities) == 0 {
+		t.Errorf("Expected cyclomatic complexity results, got 0")
+	}
+	foundMain := false
+	for _, c := range secReport.CycloComplexities {
+		if c.Function == "main" && c.Score > 1 {
+			foundMain = true
+		}
+	}
+	if !foundMain {
+		t.Errorf("Expected 'main' function to have complexity > 1, got %v", secReport.CycloComplexities)
 	}
 }
