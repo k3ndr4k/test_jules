@@ -4,3 +4,4 @@ repo-auditor-extension/node_modules/
 repo-auditor-extension/node_modules
 out/
 repo-auditor-extension/out/
+test_trivy/
