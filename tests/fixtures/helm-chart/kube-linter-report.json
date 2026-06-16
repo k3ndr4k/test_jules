@@ -1,0 +1,36 @@
+{
+  "Reports": [
+    {
+      "FilePath": "templates/deployment.yaml",
+      "Check": "no-liveness-probe",
+      "Diagnostic": {
+        "Message": "container \"test-container\" does not have a livenessProbe"
+      },
+      "Remediation": "Specify a livenessProbe."
+    },
+    {
+      "FilePath": "templates/deployment.yaml",
+      "Check": "no-readiness-probe",
+      "Diagnostic": {
+        "Message": "container \"test-container\" does not have a readinessProbe"
+      },
+      "Remediation": "Specify a readinessProbe."
+    },
+    {
+      "FilePath": "templates/deployment.yaml",
+      "Check": "unset-cpu-requirements",
+      "Diagnostic": {
+        "Message": "container \"test-container\" has no cpu limit"
+      },
+      "Remediation": "Set cpu limits and requests."
+    },
+    {
+      "FilePath": "templates/deployment.yaml",
+      "Check": "unset-memory-requirements",
+      "Diagnostic": {
+        "Message": "container \"test-container\" has no memory limit"
+      },
+      "Remediation": "Set memory limits and requests."
+    }
+  ]
+}

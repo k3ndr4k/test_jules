@@ -265,6 +265,10 @@ func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport)
 	cmd := exec.Command("kube-linter", "lint", "--format", "json", repoPath)
 	out, _ := cmd.Output()
 
+	ParseKubeLinterReport(out, repoName, report)
+}
+
+func ParseKubeLinterReport(data []byte, repoName string, report *SecurityReport) {
 	var klOutput struct {
 		Reports []struct {
 			FilePath   string `json:"FilePath"`
@@ -276,10 +280,10 @@ func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport)
 		} `json:"Reports"`
 	}
 
-	if err := json.Unmarshal(out, &klOutput); err == nil {
+	if err := json.Unmarshal(data, &klOutput); err == nil {
 		for _, rep := range klOutput.Reports {
 			checkName := strings.ToLower(rep.Check)
-			if strings.Contains(checkName, "probe") || strings.Contains(checkName, "limit") || strings.Contains(checkName, "request") {
+			if strings.Contains(checkName, "probe") || strings.Contains(checkName, "limit") || strings.Contains(checkName, "requirements") {
 				report.KubeLinterIssues = append(report.KubeLinterIssues, KubeLinterFinding{
 					File:        filepath.Join(repoName, filepath.Base(rep.FilePath)),
 					Check:       rep.Check,
