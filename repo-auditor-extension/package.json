@@ -1,0 +1,56 @@
+{
+  "name": "repo-auditor-extension",
+  "displayName": "Repo Auditor",
+  "description": "Visual interface for repo-auditor to generate architecture maps",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.auditRepository",
+        "title": "Audit Repository"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "extension.auditRepository",
+          "group": "navigation",
+          "when": "explorerResourceIsFolder"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Repo Auditor",
+      "properties": {
+        "repoAuditor.binaryPath": {
+          "type": "string",
+          "default": "repo-auditor",
+          "description": "Path to the repo-auditor Go binary"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.120.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "eslint": "^8.47.0",
+    "typescript": "^5.9.3"
+  }
+}
