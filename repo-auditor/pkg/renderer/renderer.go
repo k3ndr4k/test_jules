@@ -55,6 +55,20 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 				file.WriteString(fmt.Sprintf("  %s --> %s\n", safeSourceName, safeTargetName))
 				hasEdges = true
 			}
+
+			for _, link := range p.Links {
+				safeFromName := strings.ReplaceAll(link.From, "-", "_")
+				safeFromName = strings.ReplaceAll(safeFromName, ".", "_")
+				safeToName := strings.ReplaceAll(link.To, "-", "_")
+				safeToName = strings.ReplaceAll(safeToName, ".", "_")
+
+				if link.Type != "" {
+					file.WriteString(fmt.Sprintf("  %s -->|%s| %s\n", safeFromName, link.Type, safeToName))
+				} else {
+					file.WriteString(fmt.Sprintf("  %s --> %s\n", safeFromName, safeToName))
+				}
+				hasEdges = true
+			}
 		}
 		if !hasEdges {
 			file.WriteString("  %% No dependencies detected\n")

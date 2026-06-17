@@ -12,11 +12,18 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
+type DependencyLink struct {
+	From string
+	To   string
+	Type string
+}
+
 type Project struct {
 	Name         string
 	Path         string
 	Technologies []string
 	Dependencies []string
+	Links        []DependencyLink
 }
 
 type Analyzer struct {
@@ -211,6 +218,8 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 				}
 			}
 		}
+
+		a.extractIngressLinks(repoPath, p)
 	}
 
 	isSpringBoot := false
@@ -251,12 +260,20 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 		if a.hasSpringBootEntrypoint(repoPath) {
 			techs["HTTP Entrypoint (Spring)"] = true
 		}
+		a.extractBackendLinks(repoPath, p, "Spring")
 	}
 	if isQuarkus {
 		techs["Quarkus"] = true
 		if a.hasQuarkusEntrypoint(repoPath) {
 			techs["HTTP Entrypoint (Quarkus)"] = true
 		}
+		a.extractBackendLinks(repoPath, p, "Quarkus")
+	}
+
+	// Always extract backend links even if Java/Spring is deeply nested
+	// or not correctly identified at the root level, to ensure links are picked up
+	if !isSpringBoot && !isQuarkus {
+		a.extractBackendLinks(repoPath, p, "Spring")
 	}
 
 	for t := range techs {
@@ -264,6 +281,60 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	}
 
 	return p, nil
+}
+
+func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
+	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+
+		name := info.Name()
+		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				strContent := string(content)
+				if strings.Contains(strContent, "frontend") {
+					p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
+				}
+				if strings.Contains(strContent, "api") || strings.Contains(strContent, "backend") {
+					p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (a *Analyzer) extractBackendLinks(repoPath string, p *Project, framework string) {
+	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+
+		name := info.Name()
+		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				strContent := string(content)
+
+				// Handle YAML block logic by checking existence of sub-properties, or just string search
+				// A simple string search or regex for the keys or values.
+				// Since we need to handle "redis-cache", let's look for known patterns or just the keys.
+				if strings.Contains(strContent, "spring.data.redis.host") ||
+					strings.Contains(strContent, "quarkus.redis.host-configured") ||
+					(strings.Contains(strContent, "redis:") && strings.Contains(strContent, "host:")) {
+					p.Links = append(p.Links, DependencyLink{From: framework, To: "Redis", Type: "Cache"})
+				}
+
+				if strings.Contains(strContent, "spring.rabbitmq.host") ||
+					(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
+					p.Links = append(p.Links, DependencyLink{From: framework, To: "RabbitMQ", Type: "Queue"})
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {

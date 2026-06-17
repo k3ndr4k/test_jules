@@ -63,3 +63,33 @@ func TestGoComplexDetectionFromFixture(t *testing.T) {
 		t.Errorf("Expected project name 'go-complex', got %s", p.Name)
 	}
 }
+
+func TestMultiTierAppFlowExtraction(t *testing.T) {
+	fixtureDir, _ := filepath.Abs("../../../tests/fixtures/multi-tier-app")
+
+	a := NewAnalyzer(fixtureDir, 1)
+	p, err := a.analyzeRepository(fixtureDir)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	expectedLinks := []DependencyLink{
+		{From: "Traefik", To: "Nginx", Type: "HTTP"},
+		{From: "Traefik", To: "Spring", Type: "HTTP"},
+		{From: "Spring", To: "Redis", Type: "Cache"},
+		{From: "Spring", To: "RabbitMQ", Type: "Queue"},
+	}
+
+	for _, expected := range expectedLinks {
+		found := false
+		for _, actual := range p.Links {
+			if actual.From == expected.From && actual.To == expected.To && actual.Type == expected.Type {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected link not found: %+v", expected)
+		}
+	}
+}
