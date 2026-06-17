@@ -9,7 +9,8 @@ Les fichiers de tests sont situés dans `/tests/fixtures/` :
 *   **`java-project`** : Contient un `pom.xml` factice avec des licences critiques (ex: `GPL-3.0`) et des annotations Spring Boot simulées (`@RestController`), permettant de tester le scanner SCA heuristique et la détection d'architecture.
 *   **`helm-chart`** : Simule un projet Kubernetes/Helm manquant volontairement de configuration (pas de `livenessProbe`, pas de `resources.limits`). Il contient également le résultat attendu de Kube-Linter (`kube-linter-report.json`) que le moteur Go doit parser.
 *   **`go-complex`** : Fournit un fichier source Go avec un haut niveau d'imbrication logique pour valider le calcul de complexité cyclomatique via l'AST (Alternative à Go-Cyclo).
-*   **`expected_architecture_map.md`** : C'est le rendu Markdown final théoriquement attendu après agrégation de toutes les analyses sur ces dossiers de fixtures. Il sert de point de repère visuel.
+*   **`multi-tier-app`** : Simule une architecture distribuée complexe comprenant un Ingress (Traefik via `routes.yaml`), un frontend (Nginx/Node via `Dockerfile` et `package.json`) et un backend API (Spring Boot via `pom.xml` et `application.yml` avec Redis et RabbitMQ). Utilisé pour valider la génération de diagrammes Mermaid.js avancés de type topologie système complète.
+*   **`expected_architecture_map.md`** : C'est le rendu Markdown final théoriquement attendu après agrégation des analyses basiques sur les dossiers `java-project`, `helm-chart` et `go-complex`. Il sert de point de repère visuel (Golden File).
 
 ## Comment mettre à jour les Golden Files ?
 

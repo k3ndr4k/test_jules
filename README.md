@@ -72,6 +72,7 @@ Lorsque vous exécutez `repo-auditor` (via CLI ou VS Code), il génère un rappo
 
 1. **System Topology** (`graph TD`) : Vue macro des microservices et de leurs technologies.
 2. **Dependencies and Data Flow** (`graph LR`) : Graphe des interactions détectées entre projets.
+   * *Note : Si une architecture Multi-Tier avancée est détectée (Traefik, Nginx, Spring Boot, Redis, RabbitMQ), un graphe Mermaid spécifique combinant Topologie et Flux sera généré à la place des graphes de base.*
 3. **Rapport de Sécurité Flash** :
    * Vulnérabilités (Trivy)
    * Détection de Secrets (Gitleaks)
