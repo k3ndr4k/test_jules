@@ -10,7 +10,7 @@ import (
 	"repo-auditor/pkg/security"
 )
 
-func GenerateMarkdown(projects []*analyzer.Project, secReport *security.SecurityReport, outputDir string) error {
+func GenerateMarkdown(projects []*analyzer.Project, secReport *security.SecurityReport, advGraph string, outputDir string) error {
 	outPath := filepath.Join(outputDir, "architecture_map.md")
 
 	file, err := os.Create(outPath)
@@ -21,39 +21,46 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 
 	file.WriteString("# Architecture & Data Flow Map\n\n")
 
-	// Section 1: Architecture Diagram
-	file.WriteString("## System Topology\n\n")
-	file.WriteString("```mermaid\ngraph TD\n")
-	for _, p := range projects {
-		techs := ""
-		if len(p.Technologies) > 0 {
-			techs = fmt.Sprintf(" [%s]", strings.Join(p.Technologies, ", "))
+	if advGraph != "" {
+		file.WriteString("## System Topology & Data Flow\n\n")
+		file.WriteString("```mermaid\n")
+		file.WriteString(advGraph + "\n")
+		file.WriteString("```\n\n")
+	} else {
+		// Section 1: Architecture Diagram
+		file.WriteString("## System Topology\n\n")
+		file.WriteString("```mermaid\ngraph TD\n")
+		for _, p := range projects {
+			techs := ""
+			if len(p.Technologies) > 0 {
+				techs = fmt.Sprintf(" [%s]", strings.Join(p.Technologies, ", "))
+			}
+			safeName := strings.ReplaceAll(p.Name, "-", "_")
+			safeName = strings.ReplaceAll(safeName, ".", "_")
+			file.WriteString(fmt.Sprintf("  %s(\"%s%s\")\n", safeName, p.Name, techs))
 		}
-		safeName := strings.ReplaceAll(p.Name, "-", "_")
-		safeName = strings.ReplaceAll(safeName, ".", "_")
-		file.WriteString(fmt.Sprintf("  %s(\"%s%s\")\n", safeName, p.Name, techs))
-	}
-	file.WriteString("```\n\n")
+		file.WriteString("```\n\n")
 
-	// Section 2: Data Flow Diagram
-	file.WriteString("## Dependencies and Data Flow\n\n")
-	file.WriteString("```mermaid\ngraph LR\n")
-	hasEdges := false
-	for _, p := range projects {
-		safeSourceName := strings.ReplaceAll(p.Name, "-", "_")
-		safeSourceName = strings.ReplaceAll(safeSourceName, ".", "_")
+		// Section 2: Data Flow Diagram
+		file.WriteString("## Dependencies and Data Flow\n\n")
+		file.WriteString("```mermaid\ngraph LR\n")
+		hasEdges := false
+		for _, p := range projects {
+			safeSourceName := strings.ReplaceAll(p.Name, "-", "_")
+			safeSourceName = strings.ReplaceAll(safeSourceName, ".", "_")
 
-		for _, dep := range p.Dependencies {
-			safeTargetName := strings.ReplaceAll(dep, "-", "_")
-			safeTargetName = strings.ReplaceAll(safeTargetName, ".", "_")
-			file.WriteString(fmt.Sprintf("  %s --> %s\n", safeSourceName, safeTargetName))
-			hasEdges = true
+			for _, dep := range p.Dependencies {
+				safeTargetName := strings.ReplaceAll(dep, "-", "_")
+				safeTargetName = strings.ReplaceAll(safeTargetName, ".", "_")
+				file.WriteString(fmt.Sprintf("  %s --> %s\n", safeSourceName, safeTargetName))
+				hasEdges = true
+			}
 		}
+		if !hasEdges {
+			file.WriteString("  %% No dependencies detected\n")
+		}
+		file.WriteString("```\n\n")
 	}
-	if !hasEdges {
-		file.WriteString("  %% No dependencies detected\n")
-	}
-	file.WriteString("```\n\n")
 
 	// Section 3: Security Report
 	file.WriteString("## Rapport de Sécurité Flash\n\n")

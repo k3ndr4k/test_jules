@@ -1,0 +1,6 @@
+spring:
+  data:
+    redis:
+      host: redis-cache
+  rabbitmq:
+    host: rabbitmq-broker

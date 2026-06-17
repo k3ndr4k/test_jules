@@ -1,0 +1,8 @@
+http:
+  routers:
+    frontend-router:
+      rule: "PathPrefix(`/`)"
+      service: "frontend-service"
+    api-router:
+      rule: "PathPrefix(`/api`)"
+      service: "api-service"

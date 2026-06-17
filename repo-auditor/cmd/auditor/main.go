@@ -28,7 +28,7 @@ func main() {
 
 	a := analyzer.NewAnalyzer(*pathFlag, *concurrencyFlag)
 
-	projects, secReport, err := a.Analyze()
+	projects, secReport, advGraph, err := a.Analyze()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error during analysis: %v\n", err)
 		os.Exit(1)
@@ -36,7 +36,7 @@ func main() {
 
 	fmt.Printf("Found %d projects. Generating architecture map...\n", len(projects))
 
-	err = renderer.GenerateMarkdown(projects, secReport, *pathFlag)
+	err = renderer.GenerateMarkdown(projects, secReport, advGraph, *pathFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating markdown: %v\n", err)
 		os.Exit(1)

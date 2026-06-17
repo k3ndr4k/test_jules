@@ -1,0 +1,7 @@
+{
+  "name": "frontend-nginx",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "nginx -g 'daemon off;'"
+  }
+}

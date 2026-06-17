@@ -34,10 +34,10 @@ func NewAnalyzer(rootPath string, concurrency int) *Analyzer {
 	}
 }
 
-func (a *Analyzer) Analyze() ([]*Project, *security.SecurityReport, error) {
+func (a *Analyzer) Analyze() ([]*Project, *security.SecurityReport, string, error) {
 	paths, err := a.findRepositories(a.RootPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	secReport := &security.SecurityReport{}
@@ -46,7 +46,9 @@ func (a *Analyzer) Analyze() ([]*Project, *security.SecurityReport, error) {
 	projects := a.analyzeConcurrent(paths, secReport)
 	a.mapDependencies(projects)
 
-	return projects, secReport, nil
+	advGraph := ExtractAdvancedArchitecture(a.RootPath)
+
+	return projects, secReport, advGraph, nil
 }
 
 func (a *Analyzer) findRepositories(root string) ([]string, error) {
@@ -87,7 +89,6 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 					var localReport security.SecurityReport
 					var scanWg sync.WaitGroup
 
-					// Concurrent scanning functions
 					scanWg.Add(1)
 					go func() {
 						defer scanWg.Done()
@@ -131,7 +132,6 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 					scanWg.Add(1)
 					go func() {
 						defer scanWg.Done()
-						// Gocyclo Scan if Go project
 						goModPath := filepath.Join(path, "go.mod")
 						if _, err := os.Stat(goModPath); err == nil {
 							security.RunGocycloScan(path, p.Name, &localReport)

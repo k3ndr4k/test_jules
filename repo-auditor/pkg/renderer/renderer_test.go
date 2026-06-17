@@ -52,7 +52,7 @@ func TestExpectedArchitectureMapMatches(t *testing.T) {
 		GocycloSkipped: true,
 	}
 
-	err = GenerateMarkdown(projects, secReport, tempDir)
+	err = GenerateMarkdown(projects, secReport, "", tempDir)
 	if err != nil {
 		t.Fatalf("Failed to generate markdown: %v", err)
 	}
@@ -73,8 +73,32 @@ func TestExpectedArchitectureMapMatches(t *testing.T) {
 	expStr := strings.TrimSpace(string(expectedData))
 
 	if genStr != expStr {
-		// Outputting a subset to avoid flooding the log, or write to file for manual inspect
 		os.WriteFile("generated.md", []byte(genStr), 0644)
 		t.Errorf("Generated markdown does not match expected Golden File. Length diff: gen=%d, exp=%d. Wrote generated.md for inspection.", len(genStr), len(expStr))
+	}
+}
+
+func TestMultiTierAdvancedArchitecture(t *testing.T) {
+	fixtureDir, _ := filepath.Abs("../../../tests/fixtures/multi-tier-app")
+
+	a := analyzer.NewAnalyzer(fixtureDir, 1)
+
+	// We only care about the advanced graph for this test, not the full project list
+	_, _, advGraph, err := a.Analyze()
+	if err != nil {
+		t.Fatalf("Analyze failed: %v", err)
+	}
+
+	expectedGraph := `graph TD
+    Client([🌐 Internet]) -->|HTTP 80/443| Traefik[💧 Ingress: Traefik]
+
+    Traefik -->|Proxy: /| Nginx[🎨 Frontend: HTML/Nginx]
+    Traefik -->|Proxy: /api| Spring[☕ Backend: Spring Boot]
+
+    Spring -->|Cache / Session| Redis[(🛑 Cache: Redis)]
+    Spring -->|Events / Async| Rabbit[🐇 Queue: RabbitMQ]`
+
+	if advGraph != expectedGraph {
+		t.Errorf("Extracted advanced graph did not match expectation.\nExpected:\n%s\nGot:\n%s", expectedGraph, advGraph)
 	}
 }
