@@ -19,21 +19,42 @@ import (
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
 	"github.com/zricethezav/gitleaks/v8/sources"
+	"sync"
 )
 
+var (
+	lookPathCache sync.Map
+)
+
+func cachedLookPath(file string) (string, error) {
+	if val, ok := lookPathCache.Load(file); ok {
+		res := val.(struct {
+			path string
+			err  error
+		})
+		return res.path, res.err
+	}
+	path, err := exec.LookPath(file)
+	lookPathCache.Store(file, struct {
+		path string
+		err  error
+	}{path, err})
+	return path, err
+}
+
 type SecurityReport struct {
-	CriticalCount    int
-	HighCount        int
-	MediumCount      int
-	TopVulns         []Vulnerability
-	SecretsAndIaC    []SecretOrIaC
-	HadolintSkipped  bool
+	CriticalCount     int
+	HighCount         int
+	MediumCount       int
+	TopVulns          []Vulnerability
+	SecretsAndIaC     []SecretOrIaC
+	HadolintSkipped   bool
 	KubeLinterSkipped bool
-	GocycloSkipped   bool
-	GitleaksSecrets  []GitleaksFinding
-	HadolintIssues   []HadolintFinding
-	KubeLinterIssues []KubeLinterFinding
-	CopyleftLicenses []CopyleftLicense
+	GocycloSkipped    bool
+	GitleaksSecrets   []GitleaksFinding
+	HadolintIssues    []HadolintFinding
+	KubeLinterIssues  []KubeLinterFinding
+	CopyleftLicenses  []CopyleftLicense
 	CycloComplexities []CycloFinding
 }
 
@@ -58,18 +79,18 @@ type GitleaksFinding struct {
 }
 
 type HadolintFinding struct {
-	File     string
-	Line     int
-	Code     string
-	Level    string
-	Message  string
+	File    string
+	Line    int
+	Code    string
+	Level   string
+	Message string
 }
 
 type KubeLinterFinding struct {
-	File         string
-	Check        string
-	Message      string
-	Remediation  string
+	File        string
+	Check       string
+	Message     string
+	Remediation string
 }
 
 type CopyleftLicense struct {
@@ -113,13 +134,13 @@ type TrivyOutput struct {
 }
 
 func RunTrivyScan(targetDir string, report *SecurityReport) {
-	_, err := exec.LookPath("trivy")
+	path, err := cachedLookPath("trivy")
 	if err != nil {
 		return
 	}
 
 	reportFile := filepath.Join(targetDir, "trivy_report.json")
-	cmd := exec.Command("trivy", "fs", "--format", "json", "--output", reportFile, ".")
+	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, ".")
 	cmd.Dir = targetDir
 	cmd.Run()
 
@@ -226,13 +247,13 @@ func RunGitleaksScan(repoPath string, reportOut *SecurityReport) {
 }
 
 func RunHadolintScan(dockerfilePath string, repoName string, report *SecurityReport) {
-	_, err := exec.LookPath("hadolint")
+	path, err := cachedLookPath("hadolint")
 	if err != nil {
 		report.HadolintSkipped = true
 		return
 	}
 
-	cmd := exec.Command("hadolint", "--format", "json", dockerfilePath)
+	cmd := exec.Command(path, "--format", "json", dockerfilePath)
 	out, _ := cmd.Output()
 
 	var issues []struct {
@@ -256,13 +277,13 @@ func RunHadolintScan(dockerfilePath string, repoName string, report *SecurityRep
 }
 
 func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport) {
-	_, err := exec.LookPath("kube-linter")
+	path, err := cachedLookPath("kube-linter")
 	if err != nil {
 		report.KubeLinterSkipped = true
 		return
 	}
 
-	cmd := exec.Command("kube-linter", "lint", "--format", "json", repoPath)
+	cmd := exec.Command(path, "lint", "--format", "json", repoPath)
 	out, _ := cmd.Output()
 
 	ParseKubeLinterReport(out, repoName, report)
@@ -275,7 +296,7 @@ func ParseKubeLinterReport(data []byte, repoName string, report *SecurityReport)
 			Diagnostic struct {
 				Message string `json:"Message"`
 			} `json:"Diagnostic"`
-			Check string `json:"Check"`
+			Check       string `json:"Check"`
 			Remediation string `json:"Remediation"`
 		} `json:"Reports"`
 	}
@@ -430,7 +451,7 @@ func calculateASTCyclo(filepathStr string) int {
 }
 
 func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
-	_, err := exec.LookPath("gocyclo")
+	path, err := cachedLookPath("gocyclo")
 	if err != nil {
 		report.GocycloSkipped = true
 
@@ -481,7 +502,7 @@ func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
 		return
 	}
 
-	cmd := exec.Command("gocyclo", "-top", "5", ".")
+	cmd := exec.Command(path, "-top", "5", ".")
 	cmd.Dir = repoPath
 	out, _ := cmd.Output()
 
