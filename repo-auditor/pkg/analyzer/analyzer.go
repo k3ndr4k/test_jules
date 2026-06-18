@@ -93,77 +93,8 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 				if err == nil {
 					resultsCh <- p
 
-					var localReport security.SecurityReport
-					var scanWg sync.WaitGroup
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						security.RunGitleaksScan(path, &localReport)
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						dockerfilePath := filepath.Join(path, "Dockerfile")
-						if _, err := os.Stat(dockerfilePath); err == nil {
-							security.RunHadolintScan(dockerfilePath, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						chartPath := filepath.Join(path, "Chart.yaml")
-						templatesPath := filepath.Join(path, "templates")
-						_, errChart := os.Stat(chartPath)
-						_, errTemplates := os.Stat(templatesPath)
-						if errChart == nil || errTemplates == nil {
-							security.RunKubeLinterScan(path, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						goModPath := filepath.Join(path, "go.mod")
-						if _, err := os.Stat(goModPath); err == nil {
-							security.RunLicenseScan(goModPath, path, false, &localReport)
-						}
-						pomPath := filepath.Join(path, "pom.xml")
-						if _, err := os.Stat(pomPath); err == nil {
-							security.RunLicenseScan(pomPath, p.Name, true, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						goModPath := filepath.Join(path, "go.mod")
-						if _, err := os.Stat(goModPath); err == nil {
-							security.RunGocycloScan(path, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Wait()
-
-					mu.Lock()
-					secReport.GitleaksSecrets = append(secReport.GitleaksSecrets, localReport.GitleaksSecrets...)
-					secReport.HadolintIssues = append(secReport.HadolintIssues, localReport.HadolintIssues...)
-					secReport.KubeLinterIssues = append(secReport.KubeLinterIssues, localReport.KubeLinterIssues...)
-					secReport.CopyleftLicenses = append(secReport.CopyleftLicenses, localReport.CopyleftLicenses...)
-					secReport.CycloComplexities = append(secReport.CycloComplexities, localReport.CycloComplexities...)
-
-					if localReport.HadolintSkipped {
-						secReport.HadolintSkipped = true
-					}
-					if localReport.KubeLinterSkipped {
-						secReport.KubeLinterSkipped = true
-					}
-					if localReport.GocycloSkipped {
-						secReport.GocycloSkipped = true
-					}
-					mu.Unlock()
+					localReport := runSecurityScansForRepo(path, p.Name)
+					mergeSecurityReports(secReport, &localReport, &mu)
 				}
 			}
 		}()
@@ -185,6 +116,83 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 	}
 
 	return projects
+}
+
+func runSecurityScansForRepo(path string, projectName string) security.SecurityReport {
+	var localReport security.SecurityReport
+	var scanWg sync.WaitGroup
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		security.RunGitleaksScan(path, &localReport)
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		dockerfilePath := filepath.Join(path, "Dockerfile")
+		if _, err := os.Stat(dockerfilePath); err == nil {
+			security.RunHadolintScan(dockerfilePath, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		chartPath := filepath.Join(path, "Chart.yaml")
+		templatesPath := filepath.Join(path, "templates")
+		_, errChart := os.Stat(chartPath)
+		_, errTemplates := os.Stat(templatesPath)
+		if errChart == nil || errTemplates == nil {
+			security.RunKubeLinterScan(path, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		goModPath := filepath.Join(path, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			security.RunLicenseScan(goModPath, path, false, &localReport)
+		}
+		pomPath := filepath.Join(path, "pom.xml")
+		if _, err := os.Stat(pomPath); err == nil {
+			security.RunLicenseScan(pomPath, projectName, true, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		goModPath := filepath.Join(path, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			security.RunGocycloScan(path, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Wait()
+	return localReport
+}
+
+func mergeSecurityReports(dest *security.SecurityReport, src *security.SecurityReport, mu *sync.Mutex) {
+	mu.Lock()
+	defer mu.Unlock()
+	dest.GitleaksSecrets = append(dest.GitleaksSecrets, src.GitleaksSecrets...)
+	dest.HadolintIssues = append(dest.HadolintIssues, src.HadolintIssues...)
+	dest.KubeLinterIssues = append(dest.KubeLinterIssues, src.KubeLinterIssues...)
+	dest.CopyleftLicenses = append(dest.CopyleftLicenses, src.CopyleftLicenses...)
+	dest.CycloComplexities = append(dest.CycloComplexities, src.CycloComplexities...)
+
+	if src.HadolintSkipped {
+		dest.HadolintSkipped = true
+	}
+	if src.KubeLinterSkipped {
+		dest.KubeLinterSkipped = true
+	}
+	if src.GocycloSkipped {
+		dest.GocycloSkipped = true
+	}
 }
 
 func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
