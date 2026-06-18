@@ -285,13 +285,13 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
 	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil || info.IsDir() || !info.Mode().IsRegular() {
 			return nil
 		}
 
 		name := info.Name()
 		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
-			content, err := os.ReadFile(path)
+			content, err := os.ReadFile(filepath.Clean(path))
 			if err == nil {
 				strContent := string(content)
 				if strings.Contains(strContent, "frontend") {
@@ -308,13 +308,13 @@ func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
 
 func (a *Analyzer) extractBackendLinks(repoPath string, p *Project, framework string) {
 	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil || info.IsDir() || !info.Mode().IsRegular() {
 			return nil
 		}
 
 		name := info.Name()
 		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			content, err := os.ReadFile(path)
+			content, err := os.ReadFile(filepath.Clean(path))
 			if err == nil {
 				strContent := string(content)
 
@@ -353,30 +353,38 @@ func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {
 		name := info.Name()
 		ext := filepath.Ext(path)
 
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
 		if ext == ".java" || ext == ".kt" {
-			file, err := os.Open(path)
-			if err == nil {
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					if strings.Contains(scanner.Text(), "@RestController") {
-						found = true
-						break
+			func() {
+				file, err := os.Open(filepath.Clean(path))
+				if err == nil {
+					defer file.Close()
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						if strings.Contains(scanner.Text(), "@RestController") {
+							found = true
+							break
+						}
 					}
 				}
-				file.Close()
-			}
+			}()
 		} else if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			file, err := os.Open(path)
-			if err == nil {
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					if strings.Contains(scanner.Text(), "server.port") {
-						found = true
-						break
+			func() {
+				file, err := os.Open(filepath.Clean(path))
+				if err == nil {
+					defer file.Close()
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						if strings.Contains(scanner.Text(), "server.port") {
+							found = true
+							break
+						}
 					}
 				}
-				file.Close()
-			}
+			}()
 		}
 		return nil
 	})
@@ -399,31 +407,39 @@ func (a *Analyzer) hasQuarkusEntrypoint(repoPath string) bool {
 		name := info.Name()
 		ext := filepath.Ext(path)
 
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
 		if ext == ".java" || ext == ".kt" {
-			file, err := os.Open(path)
-			if err == nil {
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					line := scanner.Text()
-					if strings.Contains(line, "@Path") || strings.Contains(line, "@GET") || strings.Contains(line, "@POST") {
-						found = true
-						break
+			func() {
+				file, err := os.Open(filepath.Clean(path))
+				if err == nil {
+					defer file.Close()
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						line := scanner.Text()
+						if strings.Contains(line, "@Path") || strings.Contains(line, "@GET") || strings.Contains(line, "@POST") {
+							found = true
+							break
+						}
 					}
 				}
-				file.Close()
-			}
+			}()
 		} else if name == "application.properties" {
-			file, err := os.Open(path)
-			if err == nil {
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					if strings.Contains(scanner.Text(), "quarkus.http.port") {
-						found = true
-						break
+			func() {
+				file, err := os.Open(filepath.Clean(path))
+				if err == nil {
+					defer file.Close()
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						if strings.Contains(scanner.Text(), "quarkus.http.port") {
+							found = true
+							break
+						}
 					}
 				}
-				file.Close()
-			}
+			}()
 		}
 		return nil
 	})
@@ -462,29 +478,35 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 			return nil
 		}
 
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
 		ext := filepath.Ext(path)
 		if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".py" || ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".env" || ext == ".java" || ext == ".kt" || ext == "" {
 			if info.Size() > 1024*1024 {
 				return nil
 			}
 
-			file, err := os.Open(path)
-			if err != nil {
-				return nil
-			}
-			defer file.Close()
+			func() {
+				file, err := os.Open(filepath.Clean(path))
+				if err != nil {
+					return
+				}
+				defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				line := scanner.Text()
-				for pname := range projectNames {
-					if pname != myName && !found[pname] {
-						if strings.Contains(line, pname) {
-							found[pname] = true
+				scanner := bufio.NewScanner(file)
+				for scanner.Scan() {
+					line := scanner.Text()
+					for pname := range projectNames {
+						if pname != myName && !found[pname] {
+							if strings.Contains(line, pname) {
+								found[pname] = true
+							}
 						}
 					}
 				}
-			}
+			}()
 		}
 		return nil
 	})
