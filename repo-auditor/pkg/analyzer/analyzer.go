@@ -211,10 +211,10 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	repoPathClean := filepath.Clean(repoPath)
 
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				name := d.Name()
+	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			if info != nil && info.IsDir() {
+				name := info.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -222,11 +222,11 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 			return nil
 		}
 
-		if !d.Type().IsRegular() {
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 
-		name := d.Name()
+		name := info.Name()
 		ext := filepath.Ext(path)
 		isRoot := filepath.Dir(path) == repoPathClean
 
@@ -369,6 +369,10 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	return p, nil
 }
+
+
+
+
 
 func (a *Analyzer) mapDependencies(projects []*Project) {
 	projectNames := make(map[string]bool)
