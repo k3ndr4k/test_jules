@@ -33,7 +33,8 @@
         "repoAuditor.binaryPath": {
           "type": "string",
           "default": "repo-auditor",
-          "description": "Path to the repo-auditor Go binary"
+          "description": "Path to the repo-auditor Go binary",
+          "scope": "machine"
         }
       }
     }
