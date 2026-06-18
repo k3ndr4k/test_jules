@@ -2,6 +2,8 @@ package analyzer
 
 import (
 	"bufio"
+	"bytes"
+
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,11 +62,11 @@ func (a *Analyzer) Analyze() ([]*Project, *security.SecurityReport, string, erro
 
 func (a *Analyzer) findRepositories(root string) ([]string, error) {
 	var repos []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if d.IsDir() && d.Name() == ".git" {
 			dir := filepath.Dir(path)
 			_, err := git.PlainOpen(dir)
 			if err == nil {
@@ -227,10 +229,10 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	if hasJavaBuild {
 		techs["Java/Kotlin"] = true
-		filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() {
-				if info != nil && info.IsDir() {
-					name := info.Name()
+		filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				if d != nil && d.IsDir() {
+					name := d.Name()
 					if name == ".git" || name == "node_modules" || name == "vendor" {
 						return filepath.SkipDir
 					}
@@ -238,7 +240,7 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 				return nil
 			}
 
-			name := info.Name()
+			name := d.Name()
 			if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
 				content, err := os.ReadFile(path)
 				if err == nil {
@@ -284,12 +286,12 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 }
 
 func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !info.Mode().IsRegular() {
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !d.Type().IsRegular() {
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
 			content, err := os.ReadFile(filepath.Clean(path))
 			if err == nil {
@@ -307,12 +309,12 @@ func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
 }
 
 func (a *Analyzer) extractBackendLinks(repoPath string, p *Project, framework string) {
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !info.Mode().IsRegular() {
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !d.Type().IsRegular() {
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
 			content, err := os.ReadFile(filepath.Clean(path))
 			if err == nil {
@@ -339,10 +341,10 @@ func (a *Analyzer) extractBackendLinks(repoPath string, p *Project, framework st
 
 func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {
 	found := false
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if found || err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				name := info.Name()
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if found || err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -350,41 +352,29 @@ func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		ext := filepath.Ext(path)
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
 		if ext == ".java" || ext == ".kt" {
-			func() {
-				file, err := os.Open(filepath.Clean(path))
-				if err == nil {
-					defer file.Close()
-					scanner := bufio.NewScanner(file)
-					for scanner.Scan() {
-						if strings.Contains(scanner.Text(), "@RestController") {
-							found = true
-							break
-						}
-					}
+			content, err := os.ReadFile(filepath.Clean(path))
+			if err == nil {
+				if bytes.Contains(content, []byte("@RestController")) {
+					found = true
+					return filepath.SkipAll // Optimization: Skip remaining files in walk
 				}
-			}()
+			}
 		} else if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			func() {
-				file, err := os.Open(filepath.Clean(path))
-				if err == nil {
-					defer file.Close()
-					scanner := bufio.NewScanner(file)
-					for scanner.Scan() {
-						if strings.Contains(scanner.Text(), "server.port") {
-							found = true
-							break
-						}
-					}
+			content, err := os.ReadFile(filepath.Clean(path))
+			if err == nil {
+				if bytes.Contains(content, []byte("server.port")) {
+					found = true
+					return filepath.SkipAll // Optimization: Skip remaining files in walk
 				}
-			}()
+			}
 		}
 		return nil
 	})
@@ -393,10 +383,10 @@ func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {
 
 func (a *Analyzer) hasQuarkusEntrypoint(repoPath string) bool {
 	found := false
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if found || err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				name := info.Name()
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if found || err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -404,42 +394,29 @@ func (a *Analyzer) hasQuarkusEntrypoint(repoPath string) bool {
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		ext := filepath.Ext(path)
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
 		if ext == ".java" || ext == ".kt" {
-			func() {
-				file, err := os.Open(filepath.Clean(path))
-				if err == nil {
-					defer file.Close()
-					scanner := bufio.NewScanner(file)
-					for scanner.Scan() {
-						line := scanner.Text()
-						if strings.Contains(line, "@Path") || strings.Contains(line, "@GET") || strings.Contains(line, "@POST") {
-							found = true
-							break
-						}
-					}
+			content, err := os.ReadFile(filepath.Clean(path))
+			if err == nil {
+				if bytes.Contains(content, []byte("@Path")) || bytes.Contains(content, []byte("@GET")) || bytes.Contains(content, []byte("@POST")) {
+					found = true
+					return filepath.SkipAll // Optimization: Skip remaining files in walk
 				}
-			}()
+			}
 		} else if name == "application.properties" {
-			func() {
-				file, err := os.Open(filepath.Clean(path))
-				if err == nil {
-					defer file.Close()
-					scanner := bufio.NewScanner(file)
-					for scanner.Scan() {
-						if strings.Contains(scanner.Text(), "quarkus.http.port") {
-							found = true
-							break
-						}
-					}
+			content, err := os.ReadFile(filepath.Clean(path))
+			if err == nil {
+				if bytes.Contains(content, []byte("quarkus.http.port")) {
+					found = true
+					return filepath.SkipAll // Optimization: Skip remaining files in walk
 				}
-			}()
+			}
 		}
 		return nil
 	})
@@ -467,10 +444,10 @@ func (a *Analyzer) mapDependencies(projects []*Project) {
 func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[string]bool, myName string) []string {
 	found := make(map[string]bool)
 
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				name := info.Name()
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -478,13 +455,14 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 			return nil
 		}
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
 		ext := filepath.Ext(path)
 		if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".py" || ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".env" || ext == ".java" || ext == ".kt" || ext == "" {
-			if info.Size() > 1024*1024 {
+			info, err := d.Info()
+			if err != nil || info.Size() > 1024*1024 {
 				return nil
 			}
 
