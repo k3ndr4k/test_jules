@@ -331,6 +331,8 @@ func ParseKubeLinterReport(data []byte, repoName string, report *SecurityReport)
 	}
 }
 
+var copyleftRegex = regexp.MustCompile(`(?i)(GPL|AGPL|GNU General Public License)`)
+
 func classifyLicense(lic string) string {
 	licUpper := strings.ToUpper(lic)
 	if strings.Contains(licUpper, "GPL") {
@@ -373,7 +375,6 @@ func parsePomLicenses(filePath string, report *SecurityReport) {
 		// Also scan raw text for heuristic fallback on copyleft strings within dependency blocks if needed,
 		// but standard pom.xml license tags are preferred. We'll add the heuristic regex search here as fallback.
 		content := string(data)
-		copyleftRegex := regexp.MustCompile(`(?i)(GPL|AGPL|GNU General Public License)`)
 		if copyleftRegex.MatchString(content) {
 			report.CopyleftLicenses = append(report.CopyleftLicenses, CopyleftLicense{
 				Language:   "Java",
@@ -425,7 +426,6 @@ func parseGoModLicenses(repoPath string, report *SecurityReport) {
 	data, err := ioutil.ReadFile(goModPath)
 	if err == nil {
 		content := string(data)
-		copyleftRegex := regexp.MustCompile(`(?i)(GPL|AGPL|GNU General Public License)`)
 		if copyleftRegex.MatchString(content) {
 			report.CopyleftLicenses = append(report.CopyleftLicenses, CopyleftLicense{
 				Language:   "Go",
