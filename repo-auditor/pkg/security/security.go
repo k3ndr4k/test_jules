@@ -139,9 +139,14 @@ func RunTrivyScan(targetDir string, report *SecurityReport) {
 		return
 	}
 
-	reportFile := filepath.Join(targetDir, "trivy_report.json")
-	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, ".")
-	cmd.Dir = targetDir
+	absTargetDir, err := filepath.Abs(targetDir)
+	if err != nil {
+		return
+	}
+
+	reportFile := filepath.Join(absTargetDir, "trivy_report.json")
+	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, absTargetDir)
+	cmd.Dir = absTargetDir
 	cmd.Run()
 
 	defer os.Remove(reportFile)
@@ -253,7 +258,12 @@ func RunHadolintScan(dockerfilePath string, repoName string, report *SecurityRep
 		return
 	}
 
-	cmd := exec.Command(path, "--format", "json", dockerfilePath)
+	absDockerfilePath, err := filepath.Abs(dockerfilePath)
+	if err != nil {
+		return
+	}
+
+	cmd := exec.Command(path, "--format", "json", absDockerfilePath)
 	out, _ := cmd.Output()
 
 	var issues []struct {
@@ -283,7 +293,12 @@ func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport)
 		return
 	}
 
-	cmd := exec.Command(path, "lint", "--format", "json", repoPath)
+	absRepoPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return
+	}
+
+	cmd := exec.Command(path, "lint", "--format", "json", absRepoPath)
 	out, _ := cmd.Output()
 
 	ParseKubeLinterReport(out, repoName, report)
@@ -371,8 +386,13 @@ func parsePomLicenses(filePath string, report *SecurityReport) {
 }
 
 func parseGoModLicenses(repoPath string, report *SecurityReport) {
+	absRepoPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return
+	}
+
 	cmd := exec.Command("go", "list", "-m", "-json", "all")
-	cmd.Dir = repoPath
+	cmd.Dir = absRepoPath
 	out, err := cmd.Output()
 
 	if err == nil {
@@ -451,6 +471,11 @@ func calculateASTCyclo(filepathStr string) int {
 }
 
 func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
+	absRepoPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return
+	}
+
 	path, err := cachedLookPath("gocyclo")
 	if err != nil {
 		report.GocycloSkipped = true
@@ -503,7 +528,7 @@ func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
 	}
 
 	cmd := exec.Command(path, "-top", "5", ".")
-	cmd.Dir = repoPath
+	cmd.Dir = absRepoPath
 	out, _ := cmd.Output()
 
 	lines := strings.Split(string(out), "\n")
