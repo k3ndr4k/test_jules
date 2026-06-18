@@ -51,6 +51,15 @@ export class ArchitectureWebview {
         this._panel.webview.html = this._getHtmlForWebview(webview, markdownContent);
     }
 
+    private _escapeHtml(unsafe: string): string {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     private _getHtmlForWebview(webview: vscode.Webview, markdownContent: string): string {
         // Simple extraction of mermaid blocks
         const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
@@ -64,7 +73,7 @@ export class ArchitectureWebview {
         const mermaidBlocksHtml = diagrams.map((d, index) =>
             `<div class="diagram-container">
                 <h3>Diagram ${index + 1}</h3>
-                <div class="mermaid">${d}</div>
+                <div class="mermaid">${this._escapeHtml(d)}</div>
             </div>`
         ).join('\n');
 
