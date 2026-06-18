@@ -165,6 +165,7 @@ func RunTrivyScan(targetDir string, report *SecurityReport) {
 
 func parseTrivyReport(trivyOut *TrivyOutput, rep *SecurityReport) {
 	var allVulns []Vulnerability
+	seen := make(map[string]bool)
 
 	for _, result := range trivyOut.Results {
 		if result.Class == "secret" || result.Class == "config" {
@@ -185,14 +186,17 @@ func parseTrivyReport(trivyOut *TrivyOutput, rep *SecurityReport) {
 		}
 
 		for _, v := range result.Vulnerabilities {
-			vuln := Vulnerability{
-				PkgName:         v.PkgName,
-				VulnerabilityID: v.VulnerabilityID,
-				Severity:        v.Severity,
-				Title:           v.Title,
-				Description:     v.Description,
+			if !seen[v.VulnerabilityID] {
+				vuln := Vulnerability{
+					PkgName:         v.PkgName,
+					VulnerabilityID: v.VulnerabilityID,
+					Severity:        v.Severity,
+					Title:           v.Title,
+					Description:     v.Description,
+				}
+				allVulns = append(allVulns, vuln)
+				seen[v.VulnerabilityID] = true
 			}
-			allVulns = append(allVulns, vuln)
 
 			switch v.Severity {
 			case "CRITICAL":
@@ -210,16 +214,11 @@ func parseTrivyReport(trivyOut *TrivyOutput, rep *SecurityReport) {
 		return severityScore[allVulns[i].Severity] > severityScore[allVulns[j].Severity]
 	})
 
-	seen := make(map[string]bool)
-	for _, v := range allVulns {
-		if len(rep.TopVulns) >= 5 {
-			break
-		}
-		if !seen[v.VulnerabilityID] {
-			rep.TopVulns = append(rep.TopVulns, v)
-			seen[v.VulnerabilityID] = true
-		}
+	limit := 5
+	if len(allVulns) < limit {
+		limit = len(allVulns)
 	}
+	rep.TopVulns = append(rep.TopVulns, allVulns[:limit]...)
 }
 
 func RunGitleaksScan(repoPath string, reportOut *SecurityReport) {
