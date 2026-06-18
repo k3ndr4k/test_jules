@@ -2,8 +2,6 @@ package analyzer
 
 import (
 	"bufio"
-	"bytes"
-
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,77 +93,8 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 				if err == nil {
 					resultsCh <- p
 
-					var localReport security.SecurityReport
-					var scanWg sync.WaitGroup
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						security.RunGitleaksScan(path, &localReport)
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						dockerfilePath := filepath.Join(path, "Dockerfile")
-						if _, err := os.Stat(dockerfilePath); err == nil {
-							security.RunHadolintScan(dockerfilePath, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						chartPath := filepath.Join(path, "Chart.yaml")
-						templatesPath := filepath.Join(path, "templates")
-						_, errChart := os.Stat(chartPath)
-						_, errTemplates := os.Stat(templatesPath)
-						if errChart == nil || errTemplates == nil {
-							security.RunKubeLinterScan(path, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						goModPath := filepath.Join(path, "go.mod")
-						if _, err := os.Stat(goModPath); err == nil {
-							security.RunLicenseScan(goModPath, path, false, &localReport)
-						}
-						pomPath := filepath.Join(path, "pom.xml")
-						if _, err := os.Stat(pomPath); err == nil {
-							security.RunLicenseScan(pomPath, p.Name, true, &localReport)
-						}
-					}()
-
-					scanWg.Add(1)
-					go func() {
-						defer scanWg.Done()
-						goModPath := filepath.Join(path, "go.mod")
-						if _, err := os.Stat(goModPath); err == nil {
-							security.RunGocycloScan(path, p.Name, &localReport)
-						}
-					}()
-
-					scanWg.Wait()
-
-					mu.Lock()
-					secReport.GitleaksSecrets = append(secReport.GitleaksSecrets, localReport.GitleaksSecrets...)
-					secReport.HadolintIssues = append(secReport.HadolintIssues, localReport.HadolintIssues...)
-					secReport.KubeLinterIssues = append(secReport.KubeLinterIssues, localReport.KubeLinterIssues...)
-					secReport.CopyleftLicenses = append(secReport.CopyleftLicenses, localReport.CopyleftLicenses...)
-					secReport.CycloComplexities = append(secReport.CycloComplexities, localReport.CycloComplexities...)
-
-					if localReport.HadolintSkipped {
-						secReport.HadolintSkipped = true
-					}
-					if localReport.KubeLinterSkipped {
-						secReport.KubeLinterSkipped = true
-					}
-					if localReport.GocycloSkipped {
-						secReport.GocycloSkipped = true
-					}
-					mu.Unlock()
+					localReport := runSecurityScansForRepo(path, p.Name)
+					mergeSecurityReports(secReport, &localReport, &mu)
 				}
 			}
 		}()
@@ -189,6 +118,83 @@ func (a *Analyzer) analyzeConcurrent(paths []string, secReport *security.Securit
 	return projects
 }
 
+func runSecurityScansForRepo(path string, projectName string) security.SecurityReport {
+	var localReport security.SecurityReport
+	var scanWg sync.WaitGroup
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		security.RunGitleaksScan(path, &localReport)
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		dockerfilePath := filepath.Join(path, "Dockerfile")
+		if _, err := os.Stat(dockerfilePath); err == nil {
+			security.RunHadolintScan(dockerfilePath, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		chartPath := filepath.Join(path, "Chart.yaml")
+		templatesPath := filepath.Join(path, "templates")
+		_, errChart := os.Stat(chartPath)
+		_, errTemplates := os.Stat(templatesPath)
+		if errChart == nil || errTemplates == nil {
+			security.RunKubeLinterScan(path, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		goModPath := filepath.Join(path, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			security.RunLicenseScan(goModPath, path, false, &localReport)
+		}
+		pomPath := filepath.Join(path, "pom.xml")
+		if _, err := os.Stat(pomPath); err == nil {
+			security.RunLicenseScan(pomPath, projectName, true, &localReport)
+		}
+	}()
+
+	scanWg.Add(1)
+	go func() {
+		defer scanWg.Done()
+		goModPath := filepath.Join(path, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			security.RunGocycloScan(path, projectName, &localReport)
+		}
+	}()
+
+	scanWg.Wait()
+	return localReport
+}
+
+func mergeSecurityReports(dest *security.SecurityReport, src *security.SecurityReport, mu *sync.Mutex) {
+	mu.Lock()
+	defer mu.Unlock()
+	dest.GitleaksSecrets = append(dest.GitleaksSecrets, src.GitleaksSecrets...)
+	dest.HadolintIssues = append(dest.HadolintIssues, src.HadolintIssues...)
+	dest.KubeLinterIssues = append(dest.KubeLinterIssues, src.KubeLinterIssues...)
+	dest.CopyleftLicenses = append(dest.CopyleftLicenses, src.CopyleftLicenses...)
+	dest.CycloComplexities = append(dest.CycloComplexities, src.CycloComplexities...)
+
+	if src.HadolintSkipped {
+		dest.HadolintSkipped = true
+	}
+	if src.KubeLinterSkipped {
+		dest.KubeLinterSkipped = true
+	}
+	if src.GocycloSkipped {
+		dest.GocycloSkipped = true
+	}
+}
+
 func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	p := &Project{
 		Name: filepath.Base(repoPath),
@@ -197,51 +203,70 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	techs := make(map[string]bool)
 	hasJavaBuild := false
+	isSpringBoot := false
+	isQuarkus := false
+	hasSpringBootEntry := false
+	hasQuarkusEntry := false
 
-	entries, err := os.ReadDir(repoPath)
-	if err == nil {
-		for _, e := range entries {
-			if !e.IsDir() {
-				name := e.Name()
-				if name == "go.mod" {
-					techs["Go"] = true
-				} else if name == "package.json" {
-					techs["Node.js"] = true
-				} else if name == "requirements.txt" {
-					techs["Python"] = true
-				} else if name == "Dockerfile" {
-					techs["Docker"] = true
-				} else if name == "Chart.yaml" {
-					techs["Helm"] = true
-				} else if name == "playbook.yml" {
-					techs["Ansible"] = true
-				} else if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
-					hasJavaBuild = true
+	repoPathClean := filepath.Clean(repoPath)
+
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
+				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
+					return filepath.SkipDir
 				}
+			}
+			return nil
+		}
+
+		if !d.Type().IsRegular() {
+			return nil
+		}
+
+		name := d.Name()
+		ext := filepath.Ext(path)
+		isRoot := filepath.Dir(path) == repoPathClean
+
+		// Root level technology detection
+		if isRoot {
+			if name == "go.mod" {
+				techs["Go"] = true
+			} else if name == "package.json" {
+				techs["Node.js"] = true
+			} else if name == "requirements.txt" {
+				techs["Python"] = true
+			} else if name == "Dockerfile" {
+				techs["Docker"] = true
+			} else if name == "Chart.yaml" {
+				techs["Helm"] = true
+			} else if name == "playbook.yml" {
+				techs["Ansible"] = true
+			} else if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
+				hasJavaBuild = true
 			}
 		}
 
-		a.extractIngressLinks(repoPath, p)
-	}
-
-	isSpringBoot := false
-	isQuarkus := false
-
-	if hasJavaBuild {
-		techs["Java/Kotlin"] = true
-		filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				if d != nil && d.IsDir() {
-					name := d.Name()
-					if name == ".git" || name == "node_modules" || name == "vendor" {
-						return filepath.SkipDir
+		// Ingress links detection
+		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
+			func() {
+				content, err := os.ReadFile(path)
+				if err == nil {
+					strContent := string(content)
+					if strings.Contains(strContent, "frontend") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
+					}
+					if strings.Contains(strContent, "api") || strings.Contains(strContent, "backend") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
 					}
 				}
-				return nil
-			}
+			}()
+		}
 
-			name := d.Name()
-			if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
+		// Java Framework detection
+		if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
+			func() {
 				content, err := os.ReadFile(path)
 				if err == nil {
 					strContent := string(content)
@@ -252,30 +277,89 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 						isQuarkus = true
 					}
 				}
-			}
-			return nil
-		})
+			}()
+		}
+
+		// Backend links and entrypoint detection in properties
+		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
+			func() {
+				content, err := os.ReadFile(path)
+				if err == nil {
+					strContent := string(content)
+
+					// Backend links
+					if strings.Contains(strContent, "spring.data.redis.host") ||
+						strings.Contains(strContent, "quarkus.redis.host-configured") ||
+						(strings.Contains(strContent, "redis:") && strings.Contains(strContent, "host:")) {
+						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_REDIS", To: "Redis", Type: "Cache"})
+					}
+
+					if strings.Contains(strContent, "spring.rabbitmq.host") ||
+						(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
+						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_RABBITMQ", To: "RabbitMQ", Type: "Queue"})
+					}
+
+					// Entrypoints
+					if strings.Contains(strContent, "server.port") {
+						hasSpringBootEntry = true
+					}
+					if strings.Contains(strContent, "quarkus.http.port") {
+						hasQuarkusEntry = true
+					}
+				}
+			}()
+		}
+
+		// Java/Kotlin source entrypoints
+		if ext == ".java" || ext == ".kt" {
+			func() {
+				file, err := os.Open(path)
+				if err != nil {
+					return
+				}
+				defer file.Close()
+				scanner := bufio.NewScanner(file)
+				for scanner.Scan() {
+					line := scanner.Text()
+					if strings.Contains(line, "@RestController") {
+						hasSpringBootEntry = true
+					}
+					if strings.Contains(line, "@Path") || strings.Contains(line, "@GET") || strings.Contains(line, "@POST") {
+						hasQuarkusEntry = true
+					}
+				}
+			}()
+		}
+
+		return nil
+	})
+
+	// Resolve technologies and links
+	if hasJavaBuild {
+		techs["Java/Kotlin"] = true
 	}
 
+	framework := "Spring" // Default for links
 	if isSpringBoot {
 		techs["Spring Boot"] = true
-		if a.hasSpringBootEntrypoint(repoPath) {
+		if hasSpringBootEntry {
 			techs["HTTP Entrypoint (Spring)"] = true
 		}
-		a.extractBackendLinks(repoPath, p, "Spring")
+		framework = "Spring"
 	}
 	if isQuarkus {
 		techs["Quarkus"] = true
-		if a.hasQuarkusEntrypoint(repoPath) {
+		if hasQuarkusEntry {
 			techs["HTTP Entrypoint (Quarkus)"] = true
 		}
-		a.extractBackendLinks(repoPath, p, "Quarkus")
+		framework = "Quarkus"
 	}
 
-	// Always extract backend links even if Java/Spring is deeply nested
-	// or not correctly identified at the root level, to ensure links are picked up
-	if !isSpringBoot && !isQuarkus {
-		a.extractBackendLinks(repoPath, p, "Spring")
+	// Fix placeholder links
+	for i := range p.Links {
+		if p.Links[i].From == "FRAMEWORK_PLACEHOLDER_REDIS" || p.Links[i].From == "FRAMEWORK_PLACEHOLDER_RABBITMQ" {
+			p.Links[i].From = framework
+		}
 	}
 
 	for t := range techs {
@@ -283,144 +367,6 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	}
 
 	return p, nil
-}
-
-func (a *Analyzer) extractIngressLinks(repoPath string, p *Project) {
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !d.Type().IsRegular() {
-			return nil
-		}
-
-		name := d.Name()
-		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				strContent := string(content)
-				if strings.Contains(strContent, "frontend") {
-					p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
-				}
-				if strings.Contains(strContent, "api") || strings.Contains(strContent, "backend") {
-					p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func (a *Analyzer) extractBackendLinks(repoPath string, p *Project, framework string) {
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !d.Type().IsRegular() {
-			return nil
-		}
-
-		name := d.Name()
-		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				strContent := string(content)
-
-				// Handle YAML block logic by checking existence of sub-properties, or just string search
-				// A simple string search or regex for the keys or values.
-				// Since we need to handle "redis-cache", let's look for known patterns or just the keys.
-				if strings.Contains(strContent, "spring.data.redis.host") ||
-					strings.Contains(strContent, "quarkus.redis.host-configured") ||
-					(strings.Contains(strContent, "redis:") && strings.Contains(strContent, "host:")) {
-					p.Links = append(p.Links, DependencyLink{From: framework, To: "Redis", Type: "Cache"})
-				}
-
-				if strings.Contains(strContent, "spring.rabbitmq.host") ||
-					(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
-					p.Links = append(p.Links, DependencyLink{From: framework, To: "RabbitMQ", Type: "Queue"})
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func (a *Analyzer) hasSpringBootEntrypoint(repoPath string) bool {
-	found := false
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-		if found || err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				name := d.Name()
-				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-
-		name := d.Name()
-		ext := filepath.Ext(path)
-
-		if !d.Type().IsRegular() {
-			return nil
-		}
-
-		if ext == ".java" || ext == ".kt" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				if bytes.Contains(content, []byte("@RestController")) {
-					found = true
-					return filepath.SkipAll // Optimization: Skip remaining files in walk
-				}
-			}
-		} else if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				if bytes.Contains(content, []byte("server.port")) {
-					found = true
-					return filepath.SkipAll // Optimization: Skip remaining files in walk
-				}
-			}
-		}
-		return nil
-	})
-	return found
-}
-
-func (a *Analyzer) hasQuarkusEntrypoint(repoPath string) bool {
-	found := false
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
-		if found || err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				name := d.Name()
-				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-
-		name := d.Name()
-		ext := filepath.Ext(path)
-
-		if !d.Type().IsRegular() {
-			return nil
-		}
-
-		if ext == ".java" || ext == ".kt" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				if bytes.Contains(content, []byte("@Path")) || bytes.Contains(content, []byte("@GET")) || bytes.Contains(content, []byte("@POST")) {
-					found = true
-					return filepath.SkipAll // Optimization: Skip remaining files in walk
-				}
-			}
-		} else if name == "application.properties" {
-			content, err := os.ReadFile(filepath.Clean(path))
-			if err == nil {
-				if bytes.Contains(content, []byte("quarkus.http.port")) {
-					found = true
-					return filepath.SkipAll // Optimization: Skip remaining files in walk
-				}
-			}
-		}
-		return nil
-	})
-	return found
 }
 
 func (a *Analyzer) mapDependencies(projects []*Project) {
