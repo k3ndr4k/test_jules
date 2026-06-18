@@ -3,6 +3,8 @@ package analyzer
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/BobuSumisu/aho-corasick"
 )
 
 func contains(slice []string, item string) bool {
@@ -91,5 +93,33 @@ func TestMultiTierAppFlowExtraction(t *testing.T) {
 		if !found {
 			t.Errorf("Expected link not found: %+v", expected)
 		}
+	}
+}
+
+func BenchmarkFindDependenciesInRepo(b *testing.B) {
+	fixtureDir, _ := filepath.Abs("../../../tests/fixtures/multi-tier-app")
+	a := NewAnalyzer(fixtureDir, 1)
+
+	projectNames := make(map[string]bool)
+	var allNames []string
+	projectNames["Nginx"] = true
+	projectNames["Spring"] = true
+	projectNames["Redis"] = true
+	projectNames["RabbitMQ"] = true
+	projectNames["Traefik"] = true
+	allNames = append(allNames, "Nginx", "Spring", "Redis", "RabbitMQ", "Traefik")
+
+	// Add dummy project names to increase the map size and emphasize the performance problem
+	for i := 0; i < 100; i++ {
+		name := filepath.Join("DummyProject", string(rune(i)))
+		projectNames[name] = true
+		allNames = append(allNames, name)
+	}
+
+	trie := ahocorasick.NewTrieBuilder().AddStrings(allNames).Build()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.findDependenciesInRepo(fixtureDir, projectNames, "Traefik", trie)
 	}
 }
