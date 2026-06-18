@@ -61,11 +61,11 @@ func (a *Analyzer) Analyze() ([]*Project, *security.SecurityReport, string, erro
 
 func (a *Analyzer) findRepositories(root string) ([]string, error) {
 	var repos []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if d.IsDir() && d.Name() == ".git" {
 			dir := filepath.Dir(path)
 			_, err := git.PlainOpen(dir)
 			if err == nil {
@@ -402,10 +402,10 @@ func (a *Analyzer) mapDependencies(projects []*Project) {
 func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[string]bool, myName string, trie *ahocorasick.Trie) []string {
 	found := make(map[string]bool)
 
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				name := info.Name()
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -413,13 +413,14 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 			return nil
 		}
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
 		ext := filepath.Ext(path)
 		if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".py" || ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".env" || ext == ".java" || ext == ".kt" || ext == "" {
-			if info.Size() > 1024*1024 {
+			info, err := d.Info()
+			if err != nil || info.Size() > 1024*1024 {
 				return nil
 			}
 
