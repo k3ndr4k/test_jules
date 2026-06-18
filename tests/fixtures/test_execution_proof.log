@@ -1,0 +1,25 @@
+?   	repo-auditor/cmd/auditor	[no test files]
+=== RUN   TestJavaSpringBootDetectionFromFixture
+--- PASS: TestJavaSpringBootDetectionFromFixture (0.00s)
+=== RUN   TestHelmDetectionFromFixture
+--- PASS: TestHelmDetectionFromFixture (0.00s)
+=== RUN   TestGoComplexDetectionFromFixture
+--- PASS: TestGoComplexDetectionFromFixture (0.00s)
+=== RUN   TestMultiTierAppFlowExtraction
+--- PASS: TestMultiTierAppFlowExtraction (0.00s)
+PASS
+ok  	repo-auditor/pkg/analyzer	(cached)
+=== RUN   TestExpectedArchitectureMapMatches
+--- PASS: TestExpectedArchitectureMapMatches (0.00s)
+=== RUN   TestMultiTierAdvancedArchitecture
+--- PASS: TestMultiTierAdvancedArchitecture (0.02s)
+PASS
+ok  	repo-auditor/pkg/renderer	(cached)
+=== RUN   TestLicenseScanFromFixture
+--- PASS: TestLicenseScanFromFixture (0.00s)
+=== RUN   TestKubeLinterJsonParsingFromFixture
+--- PASS: TestKubeLinterJsonParsingFromFixture (0.00s)
+=== RUN   TestGocycloASTFallbackFromFixture
+--- PASS: TestGocycloASTFallbackFromFixture (0.02s)
+PASS
+ok  	repo-auditor/pkg/security	(cached)
