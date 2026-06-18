@@ -9,6 +9,7 @@ import (
 
 	"repo-auditor/pkg/security"
 
+	"github.com/BobuSumisu/aho-corasick"
 	"github.com/go-git/go-git/v5"
 )
 
@@ -375,8 +376,15 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 func (a *Analyzer) mapDependencies(projects []*Project) {
 	projectNames := make(map[string]bool)
+	var allNames []string
 	for _, p := range projects {
 		projectNames[p.Name] = true
+		allNames = append(allNames, p.Name)
+	}
+
+	var trie *ahocorasick.Trie
+	if len(allNames) > 0 {
+		trie = ahocorasick.NewTrieBuilder().AddStrings(allNames).Build()
 	}
 
 	var wg sync.WaitGroup
@@ -384,14 +392,14 @@ func (a *Analyzer) mapDependencies(projects []*Project) {
 		wg.Add(1)
 		go func(proj *Project) {
 			defer wg.Done()
-			deps := a.findDependenciesInRepo(proj.Path, projectNames, proj.Name)
+			deps := a.findDependenciesInRepo(proj.Path, projectNames, proj.Name, trie)
 			proj.Dependencies = deps
 		}(p)
 	}
 	wg.Wait()
 }
 
-func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[string]bool, myName string) []string {
+func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[string]bool, myName string, trie *ahocorasick.Trie) []string {
 	found := make(map[string]bool)
 
 	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
@@ -425,9 +433,11 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 				scanner := bufio.NewScanner(file)
 				for scanner.Scan() {
 					line := scanner.Text()
-					for pname := range projectNames {
-						if pname != myName && !found[pname] {
-							if strings.Contains(line, pname) {
+					if trie != nil {
+						matches := trie.MatchString(line)
+						for _, match := range matches {
+							pname := string(match.Match())
+							if pname != myName && !found[pname] {
 								found[pname] = true
 							}
 						}

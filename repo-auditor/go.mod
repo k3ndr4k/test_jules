@@ -3,13 +3,13 @@ module repo-auditor
 go 1.25.0
 
 require (
+	github.com/BobuSumisu/aho-corasick v1.0.3
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/zricethezav/gitleaks/v8 v8.30.1
 )
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/BobuSumisu/aho-corasick v1.0.3 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
