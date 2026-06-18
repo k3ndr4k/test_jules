@@ -7,7 +7,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -341,7 +340,7 @@ func classifyLicense(lic string) string {
 }
 
 func parsePomLicenses(filePath string, report *SecurityReport) {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return
 	}
@@ -421,7 +420,7 @@ func parseGoModLicenses(repoPath string, report *SecurityReport) {
 
 	// Fallback heuristic on go.mod file content
 	goModPath := filepath.Join(repoPath, "go.mod")
-	data, err := ioutil.ReadFile(goModPath)
+	data, err := os.ReadFile(goModPath)
 	if err == nil {
 		content := string(data)
 		if copyleftRegex.MatchString(content) {
