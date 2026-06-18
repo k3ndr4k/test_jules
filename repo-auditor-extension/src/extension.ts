@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false
         }, async (progress) => {
             return new Promise<void>((resolve, reject) => {
-                cp.execFile(binaryPath, ['--path', targetPath], { cwd: targetPath }, (error, stdout, stderr) => {
+                cp.execFile(binaryPath, ['--path', targetPath], { cwd: targetPath }, async (error, stdout, stderr) => {
                     if (error) {
                         vscode.window.showErrorMessage(`Error running repo-auditor: ${error.message}`);
                         console.error(stderr);
@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
 
                     try {
-                        const markdownContent = fs.readFileSync(mapFilePath, 'utf8');
+                        const markdownContent = await fs.promises.readFile(mapFilePath, 'utf8');
                         ArchitectureWebview.createOrShow(markdownContent);
                         vscode.window.showInformationMessage('Architecture Map generated successfully!');
                     } catch (readError: any) {
