@@ -3,6 +3,12 @@ http:
     frontend-router:
       rule: "PathPrefix(`/`)"
       service: "frontend-service"
-    api-router:
-      rule: "PathPrefix(`/api`)"
-      service: "api-service"
+    api-quarkus-router:
+      rule: "PathPrefix(`/api/quarkus`)"
+      service: "api-quarkus-service"
+    api-flask-router:
+      rule: "PathPrefix(`/api/flask`)"
+      service: "api-flask-service"
+    api-dotnet-router:
+      rule: "PathPrefix(`/api/dotnet`)"
+      service: "api-dotnet-service"
