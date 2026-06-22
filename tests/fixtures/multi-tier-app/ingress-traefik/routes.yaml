@@ -1,8 +1,14 @@
 http:
   routers:
-    frontend-router:
+    frontend-nginx-router:
       rule: "PathPrefix(`/`)"
-      service: "frontend-service"
+      service: "frontend-nginx-service"
+    frontend-angular-router:
+      rule: "PathPrefix(`/app`)"
+      service: "frontend-angular-service"
+    api-spring-router:
+      rule: "PathPrefix(`/api/spring`)"
+      service: "api-spring-service"
     api-quarkus-router:
       rule: "PathPrefix(`/api/quarkus`)"
       service: "api-quarkus-service"

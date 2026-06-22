@@ -77,9 +77,15 @@ func TestMultiTierAppFlowExtraction(t *testing.T) {
 
 	expectedLinks := []DependencyLink{
 		{From: "Traefik", To: "Nginx", Type: "HTTP"},
+		{From: "Traefik", To: "Angular", Type: "HTTP"},
 		{From: "Traefik", To: "Spring", Type: "HTTP"},
+		{From: "Traefik", To: "Quarkus", Type: "HTTP"},
+		{From: "Traefik", To: "Flask", Type: "HTTP"},
+		{From: "Traefik", To: "DotNet", Type: "HTTP"},
 		{From: "Spring", To: "Redis", Type: "Cache"},
 		{From: "Spring", To: "RabbitMQ", Type: "Queue"},
+		{From: "Quarkus", To: "Postgres", Type: "JDBC"},
+		{From: "Migrator", To: "Postgres", Type: "Init Script"},
 	}
 
 	for _, expected := range expectedLinks {

@@ -2,3 +2,7 @@ version: '3.8'
 services:
   postgres-db:
     image: postgres:13.2
+  redis:
+    image: redis:latest
+  rabbitmq:
+    image: rabbitmq:latest

@@ -90,13 +90,21 @@ func TestMultiTierAdvancedArchitecture(t *testing.T) {
 	}
 
 	expectedGraph := `graph TD
-    Client([🌐 Internet]) -->|HTTP 80/443| Traefik[💧 Ingress: Traefik]
+    Client([🌐 Internet]) -->|HTTP/HTTPS| Traefik[💧 Ingress: Traefik]
 
-    Traefik -->|Proxy: /| Nginx[🎨 Frontend: HTML/Nginx]
-    Traefik -->|Proxy: /api| Spring[☕ Backend: Spring Boot]
+    Traefik -->|Proxy: /| Nginx[🎨 Frontend: Nginx/HTML]
+    Traefik -->|Proxy: /app| Angular[🅰️ Frontend: Angular]
 
-    Spring -->|Cache / Session| Redis[(🛑 Cache: Redis)]
-    Spring -->|Events / Async| Rabbit[🐇 Queue: RabbitMQ]`
+    Traefik -->|Proxy: /api/spring| Spring[☕ API: Spring Boot]
+    Traefik -->|Proxy: /api/quarkus| Quarkus[⚛️ API: Quarkus]
+    Traefik -->|Proxy: /api/flask| Flask[🐍 API: Python/Flask]
+    Traefik -->|Proxy: /api/dotnet| DotNet[🟣 API: .NET]
+
+    Spring -->|Cache| Redis[(🛑 Cache: Redis)]
+    Spring -->|Async| Rabbit[🐇 Queue: RabbitMQ]
+
+    Quarkus -->|JDBC| Postgres[(🐘 BDD: PostgreSQL 13.2)]
+    Migrator[📜 DB Migrator] -->|Init Script| Postgres`
 
 	if advGraph != expectedGraph {
 		t.Errorf("Extracted advanced graph did not match expectation.\nExpected:\n%s\nGot:\n%s", expectedGraph, advGraph)

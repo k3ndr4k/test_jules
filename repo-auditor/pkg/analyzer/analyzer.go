@@ -249,17 +249,34 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 			}
 		}
 
+		// Database Migrator Links
+		if name == "init.sql" || name == "migrate.sql" {
+			p.Links = append(p.Links, DependencyLink{From: "Migrator", To: "Postgres", Type: "Init Script"})
+		}
+
 		// Ingress links detection
 		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
 			func() {
 				content, err := os.ReadFile(path)
 				if err == nil {
 					strContent := string(content)
-					if strings.Contains(strContent, "frontend") {
+					if strings.Contains(strContent, "frontend-nginx") || strings.Contains(strContent, "frontend-router") {
 						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
 					}
-					if strings.Contains(strContent, "api") || strings.Contains(strContent, "backend") {
+					if strings.Contains(strContent, "frontend-angular") || strings.Contains(strContent, "frontend-angular-router") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Angular", Type: "HTTP"})
+					}
+					if strings.Contains(strContent, "api-spring") || strings.Contains(strContent, "api-spring-router") {
 						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
+					}
+					if strings.Contains(strContent, "api-quarkus") || strings.Contains(strContent, "api-quarkus-router") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Quarkus", Type: "HTTP"})
+					}
+					if strings.Contains(strContent, "api-flask") || strings.Contains(strContent, "api-flask-router") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Flask", Type: "HTTP"})
+					}
+					if strings.Contains(strContent, "api-dotnet") || strings.Contains(strContent, "api-dotnet-router") {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "DotNet", Type: "HTTP"})
 					}
 				}
 			}()
@@ -298,6 +315,12 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 					if strings.Contains(strContent, "spring.rabbitmq.host") ||
 						(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
 						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_RABBITMQ", To: "RabbitMQ", Type: "Queue"})
+					}
+
+					if strings.Contains(strContent, "quarkus.datasource.db-kind=postgresql") ||
+						strings.Contains(strContent, "quarkus.datasource.jdbc.url=jdbc:postgresql") ||
+						strings.Contains(strContent, "spring.datasource.url=jdbc:postgresql") {
+						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_POSTGRES", To: "Postgres", Type: "JDBC"})
 					}
 
 					// Entrypoints
@@ -340,26 +363,25 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 		techs["Java/Kotlin"] = true
 	}
 
-	framework := "Spring" // Default for links
 	if isSpringBoot {
 		techs["Spring Boot"] = true
 		if hasSpringBootEntry {
 			techs["HTTP Entrypoint (Spring)"] = true
 		}
-		framework = "Spring"
 	}
 	if isQuarkus {
 		techs["Quarkus"] = true
 		if hasQuarkusEntry {
 			techs["HTTP Entrypoint (Quarkus)"] = true
 		}
-		framework = "Quarkus"
 	}
 
 	// Fix placeholder links
 	for i := range p.Links {
 		if p.Links[i].From == "FRAMEWORK_PLACEHOLDER_REDIS" || p.Links[i].From == "FRAMEWORK_PLACEHOLDER_RABBITMQ" {
-			p.Links[i].From = framework
+			p.Links[i].From = "Spring"
+		} else if p.Links[i].From == "FRAMEWORK_PLACEHOLDER_POSTGRES" {
+			p.Links[i].From = "Quarkus"
 		}
 	}
 
