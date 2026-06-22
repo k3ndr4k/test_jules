@@ -196,6 +196,123 @@ func mergeSecurityReports(dest *security.SecurityReport, src *security.SecurityR
 	}
 }
 
+
+func detectRootTech(name string, techs map[string]bool, hasJavaBuild *bool) {
+	if name == "go.mod" {
+		techs["Go"] = true
+	} else if name == "package.json" {
+		techs["Node.js"] = true
+	} else if name == "requirements.txt" {
+		techs["Python"] = true
+	} else if name == "Dockerfile" {
+		techs["Docker"] = true
+	} else if name == "Chart.yaml" {
+		techs["Helm"] = true
+	} else if name == "playbook.yml" {
+		techs["Ansible"] = true
+	} else if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
+		*hasJavaBuild = true
+	}
+}
+
+func detectDatabaseMigratorLinks(name string, p *Project) {
+	if name == "init.sql" || name == "migrate.sql" {
+		p.Links = append(p.Links, DependencyLink{From: "Migrator", To: "Postgres", Type: "Init Script"})
+	}
+}
+
+func detectIngressLinks(name, path string, p *Project) {
+	if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			strContent := string(content)
+			if strings.Contains(strContent, "frontend-nginx") || strings.Contains(strContent, "frontend-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
+			}
+			if strings.Contains(strContent, "frontend-angular") || strings.Contains(strContent, "frontend-angular-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Angular", Type: "HTTP"})
+			}
+			if strings.Contains(strContent, "api-spring") || strings.Contains(strContent, "api-spring-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
+			}
+			if strings.Contains(strContent, "api-quarkus") || strings.Contains(strContent, "api-quarkus-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Quarkus", Type: "HTTP"})
+			}
+			if strings.Contains(strContent, "api-flask") || strings.Contains(strContent, "api-flask-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Flask", Type: "HTTP"})
+			}
+			if strings.Contains(strContent, "api-dotnet") || strings.Contains(strContent, "api-dotnet-router") {
+				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "DotNet", Type: "HTTP"})
+			}
+		}
+	}
+}
+
+func detectJavaFramework(name, path string, isSpringBoot, isQuarkus *bool) {
+	if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			strContent := string(content)
+			if strings.Contains(strContent, "org.springframework.boot") {
+				*isSpringBoot = true
+			}
+			if strings.Contains(strContent, "io.quarkus") {
+				*isQuarkus = true
+			}
+		}
+	}
+}
+
+func detectBackendLinksAndEntrypoints(name, path string, p *Project, hasSpringBootEntry, hasQuarkusEntry *bool) {
+	if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			strContent := string(content)
+
+			// Backend links
+			if strings.Contains(strContent, "spring.data.redis.host") ||
+				strings.Contains(strContent, "quarkus.redis.host-configured") ||
+				(strings.Contains(strContent, "redis:") && strings.Contains(strContent, "host:")) {
+				p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_REDIS", To: "Redis", Type: "Cache"})
+			}
+
+			if strings.Contains(strContent, "spring.rabbitmq.host") ||
+				(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
+				p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_RABBITMQ", To: "RabbitMQ", Type: "Queue"})
+			}
+
+			if strings.Contains(strContent, "quarkus.datasource.db-kind=postgresql") ||
+				strings.Contains(strContent, "quarkus.datasource.jdbc.url=jdbc:postgresql") ||
+				strings.Contains(strContent, "spring.datasource.url=jdbc:postgresql") {
+				p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_POSTGRES", To: "Postgres", Type: "JDBC"})
+			}
+
+			// Entrypoints
+			if strings.Contains(strContent, "server.port") {
+				*hasSpringBootEntry = true
+			}
+			if strings.Contains(strContent, "quarkus.http.port") {
+				*hasQuarkusEntry = true
+			}
+		}
+	}
+}
+
+func detectSourceEntrypoints(ext, path string, hasSpringBootEntry, hasQuarkusEntry *bool) {
+	if ext == ".java" || ext == ".kt" {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			strContent := string(content)
+			if strings.Contains(strContent, "@RestController") {
+				*hasSpringBootEntry = true
+			}
+			if strings.Contains(strContent, "@Path") || strings.Contains(strContent, "@GET") || strings.Contains(strContent, "@POST") {
+				*hasQuarkusEntry = true
+			}
+		}
+	}
+}
+
 func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	p := &Project{
 		Name: filepath.Base(repoPath),
@@ -211,10 +328,10 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	repoPathClean := filepath.Clean(repoPath)
 
-	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				name := info.Name()
+	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() {
+				name := d.Name()
 				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
 					return filepath.SkipDir
 				}
@@ -222,138 +339,22 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 			return nil
 		}
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
-		name := info.Name()
+		name := d.Name()
 		ext := filepath.Ext(path)
 		isRoot := filepath.Dir(path) == repoPathClean
 
-		// Root level technology detection
 		if isRoot {
-			if name == "go.mod" {
-				techs["Go"] = true
-			} else if name == "package.json" {
-				techs["Node.js"] = true
-			} else if name == "requirements.txt" {
-				techs["Python"] = true
-			} else if name == "Dockerfile" {
-				techs["Docker"] = true
-			} else if name == "Chart.yaml" {
-				techs["Helm"] = true
-			} else if name == "playbook.yml" {
-				techs["Ansible"] = true
-			} else if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
-				hasJavaBuild = true
-			}
+			detectRootTech(name, techs, &hasJavaBuild)
 		}
-
-		// Database Migrator Links
-		if name == "init.sql" || name == "migrate.sql" {
-			p.Links = append(p.Links, DependencyLink{From: "Migrator", To: "Postgres", Type: "Init Script"})
-		}
-
-		// Ingress links detection
-		if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
-			func() {
-				content, err := os.ReadFile(path)
-				if err == nil {
-					strContent := string(content)
-					if strings.Contains(strContent, "frontend-nginx") || strings.Contains(strContent, "frontend-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
-					}
-					if strings.Contains(strContent, "frontend-angular") || strings.Contains(strContent, "frontend-angular-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Angular", Type: "HTTP"})
-					}
-					if strings.Contains(strContent, "api-spring") || strings.Contains(strContent, "api-spring-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
-					}
-					if strings.Contains(strContent, "api-quarkus") || strings.Contains(strContent, "api-quarkus-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Quarkus", Type: "HTTP"})
-					}
-					if strings.Contains(strContent, "api-flask") || strings.Contains(strContent, "api-flask-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Flask", Type: "HTTP"})
-					}
-					if strings.Contains(strContent, "api-dotnet") || strings.Contains(strContent, "api-dotnet-router") {
-						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "DotNet", Type: "HTTP"})
-					}
-				}
-			}()
-		}
-
-		// Java Framework detection
-		if name == "pom.xml" || name == "build.gradle" || name == "build.gradle.kts" {
-			func() {
-				content, err := os.ReadFile(path)
-				if err == nil {
-					strContent := string(content)
-					if strings.Contains(strContent, "org.springframework.boot") {
-						isSpringBoot = true
-					}
-					if strings.Contains(strContent, "io.quarkus") {
-						isQuarkus = true
-					}
-				}
-			}()
-		}
-
-		// Backend links and entrypoint detection in properties
-		if name == "application.properties" || name == "application.yml" || name == "application.yaml" {
-			func() {
-				content, err := os.ReadFile(path)
-				if err == nil {
-					strContent := string(content)
-
-					// Backend links
-					if strings.Contains(strContent, "spring.data.redis.host") ||
-						strings.Contains(strContent, "quarkus.redis.host-configured") ||
-						(strings.Contains(strContent, "redis:") && strings.Contains(strContent, "host:")) {
-						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_REDIS", To: "Redis", Type: "Cache"})
-					}
-
-					if strings.Contains(strContent, "spring.rabbitmq.host") ||
-						(strings.Contains(strContent, "rabbitmq:") && strings.Contains(strContent, "host:")) {
-						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_RABBITMQ", To: "RabbitMQ", Type: "Queue"})
-					}
-
-					if strings.Contains(strContent, "quarkus.datasource.db-kind=postgresql") ||
-						strings.Contains(strContent, "quarkus.datasource.jdbc.url=jdbc:postgresql") ||
-						strings.Contains(strContent, "spring.datasource.url=jdbc:postgresql") {
-						p.Links = append(p.Links, DependencyLink{From: "FRAMEWORK_PLACEHOLDER_POSTGRES", To: "Postgres", Type: "JDBC"})
-					}
-
-					// Entrypoints
-					if strings.Contains(strContent, "server.port") {
-						hasSpringBootEntry = true
-					}
-					if strings.Contains(strContent, "quarkus.http.port") {
-						hasQuarkusEntry = true
-					}
-				}
-			}()
-		}
-
-		// Java/Kotlin source entrypoints
-		if ext == ".java" || ext == ".kt" {
-			func() {
-				file, err := os.Open(path)
-				if err != nil {
-					return
-				}
-				defer file.Close()
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					line := scanner.Text()
-					if strings.Contains(line, "@RestController") {
-						hasSpringBootEntry = true
-					}
-					if strings.Contains(line, "@Path") || strings.Contains(line, "@GET") || strings.Contains(line, "@POST") {
-						hasQuarkusEntry = true
-					}
-				}
-			}()
-		}
+		detectDatabaseMigratorLinks(name, p)
+		detectIngressLinks(name, path, p)
+		detectJavaFramework(name, path, &isSpringBoot, &isQuarkus)
+		detectBackendLinksAndEntrypoints(name, path, p, &hasSpringBootEntry, &hasQuarkusEntry)
+		detectSourceEntrypoints(ext, path, &hasSpringBootEntry, &hasQuarkusEntry)
 
 		return nil
 	})
