@@ -145,7 +145,7 @@ func RunTrivyScan(targetDir string, report *SecurityReport) {
 	}
 
 	reportFile := filepath.Join(absTargetDir, "trivy_report.json")
-	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, absTargetDir)
+	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, "--", absTargetDir)
 	cmd.Dir = absTargetDir
 	cmd.Run()
 
@@ -262,7 +262,7 @@ func RunHadolintScan(dockerfilePath string, repoName string, report *SecurityRep
 		return
 	}
 
-	cmd := exec.Command(path, "--format", "json", absDockerfilePath)
+	cmd := exec.Command(path, "--format", "json", "--", absDockerfilePath)
 	out, _ := cmd.Output()
 
 	var issues []struct {
@@ -297,7 +297,7 @@ func RunKubeLinterScan(repoPath string, repoName string, report *SecurityReport)
 		return
 	}
 
-	cmd := exec.Command(path, "lint", "--format", "json", absRepoPath)
+	cmd := exec.Command(path, "lint", "--format", "json", "--", absRepoPath)
 	out, _ := cmd.Output()
 
 	ParseKubeLinterReport(out, repoName, report)
