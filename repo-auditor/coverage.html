@@ -1,0 +1,291 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>renderer: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+
+				<option value="file0">repo-auditor/pkg/renderer/renderer.go (58.3%)</option>
+
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+
+			</div>
+		</div>
+		<div id="content">
+
+		<pre class="file" id="file0" style="display: none">package renderer
+
+import (
+        "fmt"
+        "os"
+        "path/filepath"
+        "strings"
+
+        "repo-auditor/pkg/analyzer"
+        "repo-auditor/pkg/security"
+)
+
+func GenerateMarkdown(projects []*analyzer.Project, secReport *security.SecurityReport, advGraph string, outputDir string) error <span class="cov8" title="1">{
+        outPath := filepath.Join(outputDir, "architecture_map.md")
+
+        file, err := os.Create(outPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create output file: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer file.Close()
+
+        file.WriteString("# Architecture &amp; Data Flow Map\n\n")
+
+        if advGraph != "" </span><span class="cov0" title="0">{
+                file.WriteString("## System Topology &amp; Data Flow\n\n")
+                file.WriteString("```mermaid\n")
+                file.WriteString(advGraph + "\n")
+                file.WriteString("```\n\n")
+        }</span> else<span class="cov8" title="1"> {
+                // Section 1: Architecture Diagram
+                file.WriteString("## System Topology\n\n")
+                file.WriteString("```mermaid\ngraph TD\n")
+                for _, p := range projects </span><span class="cov8" title="1">{
+                        techs := ""
+                        if len(p.Technologies) &gt; 0 </span><span class="cov8" title="1">{
+                                techs = fmt.Sprintf(" [%s]", strings.Join(p.Technologies, ", "))
+                        }</span>
+                        <span class="cov8" title="1">safeName := strings.ReplaceAll(p.Name, "-", "_")
+                        safeName = strings.ReplaceAll(safeName, ".", "_")
+                        file.WriteString(fmt.Sprintf("  %s(\"%s%s\")\n", safeName, p.Name, techs))</span>
+                }
+                <span class="cov8" title="1">file.WriteString("```\n\n")
+
+                // Section 2: Data Flow Diagram
+                file.WriteString("## Dependencies and Data Flow\n\n")
+                file.WriteString("```mermaid\ngraph LR\n")
+                hasEdges := false
+                for _, p := range projects </span><span class="cov8" title="1">{
+                        safeSourceName := strings.ReplaceAll(p.Name, "-", "_")
+                        safeSourceName = strings.ReplaceAll(safeSourceName, ".", "_")
+
+                        for _, dep := range p.Dependencies </span><span class="cov0" title="0">{
+                                safeTargetName := strings.ReplaceAll(dep, "-", "_")
+                                safeTargetName = strings.ReplaceAll(safeTargetName, ".", "_")
+                                file.WriteString(fmt.Sprintf("  %s --&gt; %s\n", safeSourceName, safeTargetName))
+                                hasEdges = true
+                        }</span>
+
+                        <span class="cov8" title="1">for _, link := range p.Links </span><span class="cov0" title="0">{
+                                safeFromName := strings.ReplaceAll(link.From, "-", "_")
+                                safeFromName = strings.ReplaceAll(safeFromName, ".", "_")
+                                safeToName := strings.ReplaceAll(link.To, "-", "_")
+                                safeToName = strings.ReplaceAll(safeToName, ".", "_")
+
+                                if link.Type != "" </span><span class="cov0" title="0">{
+                                        file.WriteString(fmt.Sprintf("  %s --&gt;|%s| %s\n", safeFromName, link.Type, safeToName))
+                                }</span> else<span class="cov0" title="0"> {
+                                        file.WriteString(fmt.Sprintf("  %s --&gt; %s\n", safeFromName, safeToName))
+                                }</span>
+                                <span class="cov0" title="0">hasEdges = true</span>
+                        }
+                }
+                <span class="cov8" title="1">if !hasEdges </span><span class="cov8" title="1">{
+                        file.WriteString("  %% No dependencies detected\n")
+                }</span>
+                <span class="cov8" title="1">file.WriteString("```\n\n")</span>
+        }
+
+        // Section 3: Security Report
+        <span class="cov8" title="1">file.WriteString("## Rapport de Sécurité Flash\n\n")
+
+        if secReport == nil || (secReport.CriticalCount == 0 &amp;&amp; secReport.HighCount == 0 &amp;&amp; secReport.MediumCount == 0 &amp;&amp; len(secReport.GitleaksSecrets) == 0 &amp;&amp; len(secReport.HadolintIssues) == 0 &amp;&amp; len(secReport.KubeLinterIssues) == 0 &amp;&amp; len(secReport.CopyleftLicenses) == 0 &amp;&amp; len(secReport.CycloComplexities) == 0 &amp;&amp; !secReport.HadolintSkipped &amp;&amp; !secReport.KubeLinterSkipped &amp;&amp; !secReport.GocycloSkipped) </span><span class="cov0" title="0">{
+                file.WriteString("*Aucune vulnérabilité ou problème détecté, ou outils non disponibles.*\n")
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">file.WriteString("### Vulnérabilités (Trivy)\n\n")
+        file.WriteString("| Sévérité | Nombre |\n")
+        file.WriteString("|----------|--------|\n")
+        file.WriteString(fmt.Sprintf("| CRITICAL | %d |\n", secReport.CriticalCount))
+        file.WriteString(fmt.Sprintf("| HIGH     | %d |\n", secReport.HighCount))
+        file.WriteString(fmt.Sprintf("| MEDIUM   | %d |\n\n", secReport.MediumCount))
+
+        if len(secReport.TopVulns) &gt; 0 </span><span class="cov0" title="0">{
+                file.WriteString("#### Top 5 Vulnérabilités\n\n")
+                file.WriteString("| Paquet | CVE | Description |\n")
+                file.WriteString("|--------|-----|-------------|\n")
+                for _, v := range secReport.TopVulns </span><span class="cov0" title="0">{
+                        desc := strings.ReplaceAll(v.Description, "\n", " ")
+                        if len(desc) &gt; 50 </span><span class="cov0" title="0">{
+                                desc = desc[:47] + "..."
+                        }</span>
+                        <span class="cov0" title="0">file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", v.PkgName, v.VulnerabilityID, desc))</span>
+                }
+                <span class="cov0" title="0">file.WriteString("\n")</span>
+        }
+
+        <span class="cov8" title="1">if len(secReport.SecretsAndIaC) &gt; 0 </span><span class="cov0" title="0">{
+                file.WriteString("#### Secrets &amp; IaC Issues (Trivy)\n\n")
+                file.WriteString("| Cible | Type | Problème |\n")
+                file.WriteString("|-------|------|----------|\n")
+                for _, s := range secReport.SecretsAndIaC </span><span class="cov0" title="0">{
+                        file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", s.Target, s.Class, s.Title))
+                }</span>
+                <span class="cov0" title="0">file.WriteString("\n")</span>
+        }
+
+        <span class="cov8" title="1">if len(secReport.GitleaksSecrets) &gt; 0 </span><span class="cov0" title="0">{
+                file.WriteString("### Détection de Secrets (Gitleaks)\n\n")
+                file.WriteString("| Fichier | Règle | Détail |\n")
+                file.WriteString("|---------|-------|--------|\n")
+                for _, s := range secReport.GitleaksSecrets </span><span class="cov0" title="0">{
+                        file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", s.File, s.Rule, s.Secret))
+                }</span>
+                <span class="cov0" title="0">file.WriteString("\n")</span>
+        }
+
+        <span class="cov8" title="1">file.WriteString("### Linting Dockerfile (Hadolint)\n\n")
+        if secReport.HadolintSkipped </span><span class="cov0" title="0">{
+                file.WriteString("*Hadolint non installé - Analyse du Dockerfile ignorée*\n\n")
+        }</span> else<span class="cov8" title="1"> if len(secReport.HadolintIssues) &gt; 0 </span><span class="cov0" title="0">{
+                file.WriteString("| Fichier | Ligne | Niveau | Règle | Message |\n")
+                file.WriteString("|---------|-------|--------|-------|---------|\n")
+                for _, h := range secReport.HadolintIssues </span><span class="cov0" title="0">{
+                        file.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s |\n", h.File, h.Line, h.Level, h.Code, h.Message))
+                }</span>
+                <span class="cov0" title="0">file.WriteString("\n")</span>
+        } else<span class="cov8" title="1"> {
+                file.WriteString("*Aucun problème Dockerfile détecté.*\n\n")
+        }</span>
+
+        <span class="cov8" title="1">file.WriteString("## 📊 Conformité &amp; Production (Kube-Linter)\n\n")
+        if secReport.KubeLinterSkipped </span><span class="cov0" title="0">{
+                file.WriteString("*kube-linter non installé - Analyse ignorée*\n\n")
+        }</span> else<span class="cov8" title="1"> if len(secReport.KubeLinterIssues) &gt; 0 </span><span class="cov8" title="1">{
+                file.WriteString("| Composant Helm | Règle Violée | Recommandation |\n")
+                file.WriteString("|----------------|--------------|----------------|\n")
+                for _, k := range secReport.KubeLinterIssues </span><span class="cov8" title="1">{
+                        file.WriteString(fmt.Sprintf("| %s | %s | %s |\n", k.File, k.Check, k.Remediation))
+                }</span>
+                <span class="cov8" title="1">file.WriteString("\n")</span>
+        } else<span class="cov0" title="0"> {
+                file.WriteString("*Aucun problème de Probes ou de Limites détecté.*\n\n")
+        }</span>
+
+        <span class="cov8" title="1">file.WriteString("## ⚖️ Conformité des Licences Open Source\n\n")
+        if len(secReport.CopyleftLicenses) &gt; 0 </span><span class="cov8" title="1">{
+                file.WriteString("| Dépendance | Langage | Licence | Statut |\n")
+                file.WriteString("|------------|---------|---------|--------|\n")
+                for _, l := range secReport.CopyleftLicenses </span><span class="cov8" title="1">{
+                        file.WriteString(fmt.Sprintf("| %s | %s | %s | **%s** |\n", l.Dependency, l.Language, l.License, l.Status))
+                }</span>
+                <span class="cov8" title="1">file.WriteString("\n")</span>
+        } else<span class="cov0" title="0"> {
+                file.WriteString("*Aucun problème de licence détecté.*\n\n")
+        }</span>
+
+        <span class="cov8" title="1">file.WriteString("## 📉 Dette Technique &amp; Complexité\n\n")
+        if secReport.GocycloSkipped </span><span class="cov8" title="1">{
+                file.WriteString("*gocyclo non installé - Analyse AST native fallback utilisée*\n\n")
+        }</span>
+        <span class="cov8" title="1">if len(secReport.CycloComplexities) &gt; 0 </span><span class="cov8" title="1">{
+                file.WriteString("| Fichier | Fonction | Score de Complexité |\n")
+                file.WriteString("|---------|----------|---------------------|\n")
+                for _, c := range secReport.CycloComplexities </span><span class="cov8" title="1">{
+                        alert := ""
+                        if c.Score &gt; 15 </span><span class="cov8" title="1">{
+                                alert = " ⚠️"
+                        }</span>
+                        <span class="cov8" title="1">file.WriteString(fmt.Sprintf("| %s | %s | %d%s |\n", c.File, c.Function, c.Score, alert))</span>
+                }
+                <span class="cov8" title="1">file.WriteString("\n")</span>
+        } else<span class="cov0" title="0"> {
+                file.WriteString("*Aucun code source complexe analysé.*\n\n")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
