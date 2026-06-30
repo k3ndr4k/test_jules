@@ -26,17 +26,6 @@
           "when": "explorerResourceIsFolder"
         }
       ]
-    },
-    "configuration": {
-      "title": "Repo Auditor",
-      "properties": {
-        "repoAuditor.binaryPath": {
-          "type": "string",
-          "default": "repo-auditor",
-          "description": "Path to the repo-auditor Go binary",
-          "scope": "machine"
-        }
-      }
     }
   },
   "scripts": {

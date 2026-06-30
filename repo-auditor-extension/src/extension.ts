@@ -26,8 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
             targetPath = folderUris[0].fsPath;
         }
 
-        const config = vscode.workspace.getConfiguration('repoAuditor');
-        const binaryPath = config.get<string>('binaryPath') || 'repo-auditor';
+        const binaryPath = 'repo-auditor';
 
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
