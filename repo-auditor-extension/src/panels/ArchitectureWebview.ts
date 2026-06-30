@@ -1,17 +1,30 @@
 import * as vscode from 'vscode';
 
+
+
+function getNonce() {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
+
 export class ArchitectureWebview {
+    private readonly _extensionUri: vscode.Uri;
     public static currentPanel: ArchitectureWebview | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
-    private constructor(panel: vscode.WebviewPanel, markdownContent: string) {
+    private constructor(panel: vscode.WebviewPanel, markdownContent: string, extensionUri: vscode.Uri) {
+        this._extensionUri = extensionUri;
         this._panel = panel;
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._update(markdownContent);
     }
 
-    public static createOrShow(markdownContent: string) {
+    public static createOrShow(markdownContent: string, extensionUri: vscode.Uri) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
@@ -28,11 +41,12 @@ export class ArchitectureWebview {
             column || vscode.ViewColumn.One,
             {
                 enableScripts: true,
-                retainContextWhenHidden: true
+                retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')]
             }
         );
 
-        ArchitectureWebview.currentPanel = new ArchitectureWebview(panel, markdownContent);
+        ArchitectureWebview.currentPanel = new ArchitectureWebview(panel, markdownContent, extensionUri);
     }
 
     private dispose() {
@@ -61,6 +75,11 @@ export class ArchitectureWebview {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview, markdownContent: string): string {
+        const nonce = getNonce();
+
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js')
+        );
         // Simple extraction of mermaid blocks
         const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
         let match;
@@ -81,10 +100,10 @@ export class ArchitectureWebview {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: https:; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: https:; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'nonce-${nonce}';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Architecture Map</title>
-    <style>
+    <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
             padding: 20px;
@@ -120,19 +139,17 @@ export class ArchitectureWebview {
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>
-        mermaid.initialize({ startOnLoad: true, theme: 'default' });
-    </script>
 </head>
 <body>
     <div class="header">
-        <button onclick="location.reload()">Refresh</button>
-        <button onclick="alert('Export to SVG/PNG not implemented in this demo, but would use canvas/svg extraction here.')">Export to SVG/PNG</button>
+        <button id="refresh-btn">Refresh</button>
+        <button id="export-btn">Export to SVG/PNG</button>
     </div>
 
     <div id="content">
         ${diagrams.length > 0 ? mermaidBlocksHtml : '<p>No Mermaid diagrams found in the generated markdown.</p>'}
     </div>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
     }
