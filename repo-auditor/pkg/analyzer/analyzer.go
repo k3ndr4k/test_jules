@@ -313,6 +313,10 @@ func detectSourceEntrypoints(ext, path string, hasSpringBootEntry, hasQuarkusEnt
 	}
 }
 
+func shouldSkipDir(name string) bool {
+	return name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build"
+}
+
 func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	p := &Project{
 		Name: filepath.Base(repoPath),
@@ -331,8 +335,7 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			if d != nil && d.IsDir() {
-				name := d.Name()
-				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
+				if shouldSkipDir(d.Name()) {
 					return filepath.SkipDir
 				}
 			}
@@ -428,8 +431,7 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			if d != nil && d.IsDir() {
-				name := d.Name()
-				if name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "build" {
+				if shouldSkipDir(d.Name()) {
 					return filepath.SkipDir
 				}
 			}
