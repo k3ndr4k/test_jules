@@ -454,10 +454,10 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 				}
 				defer file.Close()
 
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					line := scanner.Text()
-					if trie != nil {
+				if trie != nil {
+					scanner := bufio.NewScanner(file)
+					for scanner.Scan() {
+						line := scanner.Text()
 						matches := trie.MatchString(line)
 						for _, match := range matches {
 							pname := string(match.Match())
