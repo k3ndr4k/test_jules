@@ -32,15 +32,20 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "pretest": "npm run compile && npm run lint && npm run test",
+    "test": "jest",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^18.19.130",
-    "@types/vscode": "^1.120.0",
+    "@types/vscode": "^1.125.0",
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
     "eslint": "^8.47.0",
+    "jest": "^30.4.2",
+    "jest-mock-vscode": "^4.12.0",
+    "ts-jest": "^29.4.11",
     "typescript": "^5.9.3"
   }
 }
