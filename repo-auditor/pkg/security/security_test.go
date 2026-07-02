@@ -70,3 +70,95 @@ func TestGocycloASTFallbackFromFixture(t *testing.T) {
 		t.Errorf("Did not find 'UltraComplexFunction' in complexities")
 	}
 }
+
+func TestRunHadolintScan_Success(t *testing.T) {
+	mockScript := `#!/bin/sh
+echo '[{"line": 12, "code": "DL3008", "level": "warning", "message": "Pin versions in apt get install"}]'
+`
+	tmpDir := t.TempDir()
+	mockPath := filepath.Join(tmpDir, "hadolint")
+	err := os.WriteFile(mockPath, []byte(mockScript), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create mock script: %v", err)
+	}
+
+	lookPathCache.Store("hadolint", struct {
+		path string
+		err  error
+	}{path: mockPath, err: nil})
+	defer lookPathCache.Delete("hadolint")
+
+	report := &SecurityReport{}
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	os.WriteFile(dockerfilePath, []byte("FROM ubuntu:latest\nRUN apt-get install curl"), 0644)
+
+	RunHadolintScan(dockerfilePath, "test-repo", report)
+
+	if report.HadolintSkipped {
+		t.Errorf("Expected HadolintSkipped to be false")
+	}
+
+	if len(report.HadolintIssues) != 1 {
+		t.Fatalf("Expected 1 issue, got %d", len(report.HadolintIssues))
+	}
+
+	issue := report.HadolintIssues[0]
+	if issue.Line != 12 || issue.Code != "DL3008" || issue.Level != "warning" {
+		t.Errorf("Unexpected issue details: %+v", issue)
+	}
+}
+
+func TestRunHadolintScan_Skipped(t *testing.T) {
+	lookPathCache.Store("hadolint", struct {
+		path string
+		err  error
+	}{path: "", err: os.ErrNotExist})
+	defer lookPathCache.Delete("hadolint")
+
+	report := &SecurityReport{}
+	tmpDir := t.TempDir()
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	os.WriteFile(dockerfilePath, []byte("FROM ubuntu:latest"), 0644)
+
+	RunHadolintScan(dockerfilePath, "test-repo", report)
+
+	if !report.HadolintSkipped {
+		t.Errorf("Expected HadolintSkipped to be true")
+	}
+
+	if len(report.HadolintIssues) != 0 {
+		t.Fatalf("Expected 0 issues, got %d", len(report.HadolintIssues))
+	}
+}
+
+func TestRunHadolintScan_InvalidJSON(t *testing.T) {
+	mockScript := `#!/bin/sh
+echo 'invalid json output'
+`
+	tmpDir := t.TempDir()
+	mockPath := filepath.Join(tmpDir, "hadolint")
+	err := os.WriteFile(mockPath, []byte(mockScript), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create mock script: %v", err)
+	}
+
+	lookPathCache.Store("hadolint", struct {
+		path string
+		err  error
+	}{path: mockPath, err: nil})
+	defer lookPathCache.Delete("hadolint")
+
+	report := &SecurityReport{}
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	os.WriteFile(dockerfilePath, []byte("FROM ubuntu:latest\nRUN apt-get install curl"), 0644)
+
+	RunHadolintScan(dockerfilePath, "test-repo", report)
+
+	if report.HadolintSkipped {
+		t.Errorf("Expected HadolintSkipped to be false")
+	}
+
+	if len(report.HadolintIssues) != 0 {
+		t.Fatalf("Expected 0 issues due to invalid JSON, got %d", len(report.HadolintIssues))
+	}
+}
