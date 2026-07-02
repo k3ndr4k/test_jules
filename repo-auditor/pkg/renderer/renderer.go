@@ -10,6 +10,8 @@ import (
 	"repo-auditor/pkg/security"
 )
 
+var nameReplacer = strings.NewReplacer("-", "_", ".", "_")
+
 func GenerateMarkdown(projects []*analyzer.Project, secReport *security.SecurityReport, advGraph string, outputDir string) error {
 	outPath := filepath.Join(outputDir, "architecture_map.md")
 
@@ -35,8 +37,7 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 			if len(p.Technologies) > 0 {
 				techs = fmt.Sprintf(" [%s]", strings.Join(p.Technologies, ", "))
 			}
-			safeName := strings.ReplaceAll(p.Name, "-", "_")
-			safeName = strings.ReplaceAll(safeName, ".", "_")
+			safeName := nameReplacer.Replace(p.Name)
 			file.WriteString(fmt.Sprintf("  %s(\"%s%s\")\n", safeName, p.Name, techs))
 		}
 		file.WriteString("```\n\n")
@@ -46,21 +47,17 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 		file.WriteString("```mermaid\ngraph LR\n")
 		hasEdges := false
 		for _, p := range projects {
-			safeSourceName := strings.ReplaceAll(p.Name, "-", "_")
-			safeSourceName = strings.ReplaceAll(safeSourceName, ".", "_")
+			safeSourceName := nameReplacer.Replace(p.Name)
 
 			for _, dep := range p.Dependencies {
-				safeTargetName := strings.ReplaceAll(dep, "-", "_")
-				safeTargetName = strings.ReplaceAll(safeTargetName, ".", "_")
+				safeTargetName := nameReplacer.Replace(dep)
 				file.WriteString(fmt.Sprintf("  %s --> %s\n", safeSourceName, safeTargetName))
 				hasEdges = true
 			}
 
 			for _, link := range p.Links {
-				safeFromName := strings.ReplaceAll(link.From, "-", "_")
-				safeFromName = strings.ReplaceAll(safeFromName, ".", "_")
-				safeToName := strings.ReplaceAll(link.To, "-", "_")
-				safeToName = strings.ReplaceAll(safeToName, ".", "_")
+				safeFromName := nameReplacer.Replace(link.From)
+				safeToName := nameReplacer.Replace(link.To)
 
 				if link.Type != "" {
 					file.WriteString(fmt.Sprintf("  %s -->|%s| %s\n", safeFromName, link.Type, safeToName))
