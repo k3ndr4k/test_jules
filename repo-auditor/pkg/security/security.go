@@ -474,7 +474,7 @@ func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
 		filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() && filepath.Ext(path) == ".go" {
 				fset := token.NewFileSet()
-				f, err := parser.ParseFile(fset, path, nil, 0)
+				f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
 				if err == nil {
 					for _, d := range f.Decls {
 						if fn, isFn := d.(*ast.FuncDecl); isFn {
