@@ -18,6 +18,7 @@ import (
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
 	"github.com/zricethezav/gitleaks/v8/sources"
+	"github.com/spf13/viper"
 	"sync"
 )
 
@@ -221,8 +222,11 @@ func parseTrivyReport(trivyOut *TrivyOutput, rep *SecurityReport) {
 }
 
 func RunGitleaksScan(repoPath string, reportOut *SecurityReport) {
+	v := viper.New()
+	v.SetConfigType("toml")
+	_ = v.ReadConfig(strings.NewReader(config.DefaultConfig))
 	viperCfg := config.ViperConfig{}
-	viperCfg.Translate()
+	_ = v.Unmarshal(&viperCfg)
 	cfg, _ := viperCfg.Translate()
 	detector := detect.NewDetector(cfg)
 	scanTargets := make(chan sources.ScanTarget, 100)
