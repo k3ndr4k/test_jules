@@ -171,6 +171,22 @@ describe('Extension Activation', () => {
             expect(fs.existsSync).not.toHaveBeenCalled();
         });
 
+        it('should handle repo-auditor execution failure with ENOENT (not found)', async () => {
+            const mockUri = { fsPath: '/test/path' } as vscode.Uri;
+            const error: any = new Error('spawn repo-auditor ENOENT');
+            error.code = 'ENOENT';
+
+            (cp.execFile as unknown as jest.Mock).mockImplementation((file, args, options, callback) => {
+                callback(error, '', '');
+            });
+
+            await commandCallback(mockUri);
+
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`Error running repo-auditor: ${error.message}`);
+            expect(console.error).toHaveBeenCalledWith('');
+            expect(fs.existsSync).not.toHaveBeenCalled();
+        });
+
         it('should handle missing architecture_map.md after successful execution', async () => {
             const mockUri = { fsPath: '/test/path' } as vscode.Uri;
 
