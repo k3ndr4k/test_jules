@@ -324,3 +324,30 @@ func TestGenerateMarkdown_SkippedAndEmptyStates(t *testing.T) {
 		t.Errorf("Missing Gocyclo empty message")
 	}
 }
+
+func TestGenerateMarkdown_NoDependenciesOrLinks(t *testing.T) {
+	tempDir := t.TempDir()
+
+	projects := []*analyzer.Project{
+		{
+			Name:         "IsolatedProject",
+			Path:         "isolated",
+			Technologies: []string{"Go"},
+			Dependencies: nil,
+			Links:        nil,
+		},
+	}
+
+	err := GenerateMarkdown(projects, nil, "", tempDir)
+	if err != nil {
+		t.Fatalf("Failed to generate markdown: %v", err)
+	}
+
+	generatedPath := filepath.Join(tempDir, "architecture_map.md")
+	data, _ := os.ReadFile(generatedPath)
+	strData := string(data)
+
+	if !strings.Contains(strData, "%% No dependencies detected") {
+		t.Errorf("Missing 'No dependencies detected' comment for isolated project")
+	}
+}
