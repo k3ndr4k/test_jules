@@ -196,7 +196,6 @@ func mergeSecurityReports(dest *security.SecurityReport, src *security.SecurityR
 	}
 }
 
-
 func detectRootTech(name string, techs map[string]bool, hasJavaBuild *bool) {
 	if name == "go.mod" {
 		techs["Go"] = true
@@ -395,10 +394,6 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 
 	return p, nil
 }
-
-
-
-
 
 func (a *Analyzer) mapDependencies(projects []*Project) {
 	projectNames := make(map[string]bool)

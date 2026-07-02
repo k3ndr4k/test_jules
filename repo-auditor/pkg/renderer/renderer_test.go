@@ -144,7 +144,7 @@ func TestGenerateMarkdown_DependenciesAndLinks(t *testing.T) {
 
 	projects := []*analyzer.Project{
 		{
-			Name: "Proj1",
+			Name:         "Proj1",
 			Dependencies: []string{"Dep-A"},
 			Links: []analyzer.DependencyLink{
 				{From: "Proj1", To: "LinkA", Type: "HTTP"},
@@ -300,7 +300,7 @@ func TestGenerateMarkdown_SkippedAndEmptyStates(t *testing.T) {
 		HadolintSkipped:   false,
 		KubeLinterSkipped: false,
 		GocycloSkipped:    false,
-		CriticalCount: 1, // Prevent early return
+		CriticalCount:     1, // Prevent early return
 	}
 
 	err = GenerateMarkdown(nil, secReportEmpty, "", tempDir)

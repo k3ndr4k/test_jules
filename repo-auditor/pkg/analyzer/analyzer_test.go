@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -128,4 +129,71 @@ func BenchmarkFindDependenciesInRepo(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.findDependenciesInRepo(fixtureDir, projectNames, "Traefik", trie)
 	}
+}
+
+func TestMapDependencies(t *testing.T) {
+	tempDir := t.TempDir()
+
+	projADir := filepath.Join(tempDir, "ProjA")
+	projBDir := filepath.Join(tempDir, "ProjB")
+	projCDir := filepath.Join(tempDir, "ProjC")
+
+	os.MkdirAll(projADir, 0755)
+	os.MkdirAll(projBDir, 0755)
+	os.MkdirAll(projCDir, 0755)
+
+	// ProjA depends on ProjB
+	os.WriteFile(filepath.Join(projADir, "main.go"), []byte("import \"ProjB\""), 0644)
+
+	// ProjA has node_modules containing ProjC (should be skipped)
+	nodeModulesDir := filepath.Join(projADir, "node_modules")
+	os.MkdirAll(nodeModulesDir, 0755)
+	os.WriteFile(filepath.Join(nodeModulesDir, "index.js"), []byte("const c = require('ProjC')"), 0644)
+
+	// ProjB depends on ProjC
+	os.WriteFile(filepath.Join(projBDir, "package.json"), []byte("{\"dependencies\": {\"ProjC\": \"1.0.0\"}}"), 0644)
+
+	// ProjC depends on ProjA and ProjB
+	os.WriteFile(filepath.Join(projCDir, "config.yaml"), []byte("services:\n  - ProjA\n  - ProjB"), 0644)
+
+	projects := []*Project{
+		{Name: "ProjA", Path: projADir},
+		{Name: "ProjB", Path: projBDir},
+		{Name: "ProjC", Path: projCDir},
+	}
+
+	a := NewAnalyzer(tempDir, 1)
+	a.mapDependencies(projects)
+
+	// Verify ProjA
+	if !contains(projects[0].Dependencies, "ProjB") {
+		t.Errorf("Expected ProjA to depend on ProjB, but got %v", projects[0].Dependencies)
+	}
+	if contains(projects[0].Dependencies, "ProjC") {
+		t.Errorf("Expected ProjA to NOT depend on ProjC (should be skipped), but got %v", projects[0].Dependencies)
+	}
+	if contains(projects[0].Dependencies, "ProjA") {
+		t.Errorf("Expected ProjA to NOT depend on itself, but got %v", projects[0].Dependencies)
+	}
+
+	// Verify ProjB
+	if !contains(projects[1].Dependencies, "ProjC") {
+		t.Errorf("Expected ProjB to depend on ProjC, but got %v", projects[1].Dependencies)
+	}
+
+	// Verify ProjC
+	if !contains(projects[2].Dependencies, "ProjA") {
+		t.Errorf("Expected ProjC to depend on ProjA, but got %v", projects[2].Dependencies)
+	}
+	if !contains(projects[2].Dependencies, "ProjB") {
+		t.Errorf("Expected ProjC to depend on ProjB, but got %v", projects[2].Dependencies)
+	}
+}
+
+func TestMapDependencies_Empty(t *testing.T) {
+	a := NewAnalyzer(t.TempDir(), 1)
+
+	// This should not panic
+	a.mapDependencies([]*Project{})
+	a.mapDependencies(nil)
 }

@@ -1,8 +1,8 @@
 package security
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func BenchmarkParseTrivyReport(b *testing.B) {
