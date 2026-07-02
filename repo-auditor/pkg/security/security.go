@@ -442,23 +442,15 @@ func RunLicenseScan(filePath string, repoPath string, isPom bool, report *Securi
 	}
 }
 
-func calculateASTCyclo(filepathStr string) int {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filepathStr, nil, 0)
-	if err != nil {
-		return 1 // Base complexity
-	}
-
+func calculateASTCyclo(node ast.Node) int {
 	complexity := 1
-	ast.Inspect(f, func(n ast.Node) bool {
+	ast.Inspect(node, func(n ast.Node) bool {
 		switch n.(type) {
-		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.CaseClause, *ast.CommClause, *ast.BinaryExpr:
-			// A very rudimentary complexity count
-			if be, ok := n.(*ast.BinaryExpr); ok {
-				if be.Op == token.LAND || be.Op == token.LOR {
-					complexity++
-				}
-			} else {
+		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.CaseClause, *ast.CommClause:
+			complexity++
+		case *ast.BinaryExpr:
+			be := n.(*ast.BinaryExpr)
+			if be.Op == token.LAND || be.Op == token.LOR {
 				complexity++
 			}
 		}
@@ -486,19 +478,7 @@ func RunGocycloScan(repoPath string, repoName string, report *SecurityReport) {
 				if err == nil {
 					for _, d := range f.Decls {
 						if fn, isFn := d.(*ast.FuncDecl); isFn {
-							complexity := 1
-							ast.Inspect(fn.Body, func(n ast.Node) bool {
-								switch n.(type) {
-								case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.CaseClause, *ast.CommClause:
-									complexity++
-								case *ast.BinaryExpr:
-									be := n.(*ast.BinaryExpr)
-									if be.Op == token.LAND || be.Op == token.LOR {
-										complexity++
-									}
-								}
-								return true
-							})
+							complexity := calculateASTCyclo(fn.Body)
 
 							allFuncs = append(allFuncs, CycloFinding{
 								File:     filepath.Join(repoName, filepath.Base(path)),
