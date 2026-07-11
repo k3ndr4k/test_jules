@@ -219,28 +219,30 @@ func detectDatabaseMigratorLinks(name string, p *Project) {
 	}
 }
 
+var ingressTargets = []struct {
+	keywords []string
+	target   string
+}{
+	{[]string{"frontend-nginx", "frontend-router"}, "Nginx"},
+	{[]string{"frontend-angular", "frontend-angular-router"}, "Angular"},
+	{[]string{"api-spring", "api-spring-router"}, "Spring"},
+	{[]string{"api-quarkus", "api-quarkus-router"}, "Quarkus"},
+	{[]string{"api-flask", "api-flask-router"}, "Flask"},
+	{[]string{"api-dotnet", "api-dotnet-router"}, "DotNet"},
+}
+
 func detectIngressLinks(name, path string, p *Project) {
 	if name == "routes.yaml" || name == "ingress.yaml" || name == "traefik.yml" || name == "traefik.yaml" {
 		content, err := os.ReadFile(path)
 		if err == nil {
 			strContent := string(content)
-			if strings.Contains(strContent, "frontend-nginx") || strings.Contains(strContent, "frontend-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Nginx", Type: "HTTP"})
-			}
-			if strings.Contains(strContent, "frontend-angular") || strings.Contains(strContent, "frontend-angular-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Angular", Type: "HTTP"})
-			}
-			if strings.Contains(strContent, "api-spring") || strings.Contains(strContent, "api-spring-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Spring", Type: "HTTP"})
-			}
-			if strings.Contains(strContent, "api-quarkus") || strings.Contains(strContent, "api-quarkus-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Quarkus", Type: "HTTP"})
-			}
-			if strings.Contains(strContent, "api-flask") || strings.Contains(strContent, "api-flask-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "Flask", Type: "HTTP"})
-			}
-			if strings.Contains(strContent, "api-dotnet") || strings.Contains(strContent, "api-dotnet-router") {
-				p.Links = append(p.Links, DependencyLink{From: "Traefik", To: "DotNet", Type: "HTTP"})
+			for _, tgt := range ingressTargets {
+				for _, kw := range tgt.keywords {
+					if strings.Contains(strContent, kw) {
+						p.Links = append(p.Links, DependencyLink{From: "Traefik", To: tgt.target, Type: "HTTP"})
+						break
+					}
+				}
 			}
 		}
 	}
