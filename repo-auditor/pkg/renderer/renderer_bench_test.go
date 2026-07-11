@@ -1,9 +1,9 @@
 package renderer
 
 import (
-	"testing"
 	"repo-auditor/pkg/analyzer"
 	"repo-auditor/pkg/security"
+	"testing"
 )
 
 func BenchmarkGenerateMarkdown(b *testing.B) {

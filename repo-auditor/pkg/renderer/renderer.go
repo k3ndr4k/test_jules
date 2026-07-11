@@ -76,7 +76,7 @@ func GenerateMarkdown(projects []*analyzer.Project, secReport *security.Security
 	// Section 3: Security Report
 	file.WriteString("## Rapport de Sécurité Flash\n\n")
 
-	if secReport == nil || (secReport.CriticalCount == 0 && secReport.HighCount == 0 && secReport.MediumCount == 0 && len(secReport.GitleaksSecrets) == 0 && len(secReport.HadolintIssues) == 0 && len(secReport.KubeLinterIssues) == 0 && len(secReport.CopyleftLicenses) == 0 && len(secReport.CycloComplexities) == 0 && !secReport.HadolintSkipped && !secReport.KubeLinterSkipped && !secReport.GocycloSkipped) {
+	if secReport == nil || secReport.IsEmpty() {
 		file.WriteString("*Aucune vulnérabilité ou problème détecté, ou outils non disponibles.*\n")
 		return nil
 	}
