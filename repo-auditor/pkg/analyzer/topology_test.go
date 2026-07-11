@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -61,5 +62,70 @@ func TestExtractAdvancedArchitecture_ErrorPath(t *testing.T) {
 	result := ExtractAdvancedArchitecture(fixtureDir)
 	if result != "" {
 		t.Errorf("Expected empty string on error path, got: %v", result)
+	}
+}
+
+func TestExtractAdvancedArchitecture_PartialMatch(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create some but not all files
+	files := map[string]string{
+		"routes.yaml":        "frontend-nginx-service",
+		"Dockerfile":         "FROM nginx:latest",
+		"package.json":       `{"name": "angular"}`,
+		"pom.xml":            "<dependencies><dependency><artifactId>spring-boot-starter-web</artifactId></dependency><dependency><artifactId>quarkus</artifactId></dependency></dependencies>",
+		"app.py":             "import flask",
+		"application.yml":    "redis: host\nrabbitmq: host",
+		"docker-compose.yml": "image: postgres",
+		"project.csproj":     "<Project></Project>",
+	}
+
+	for name, content := range files {
+		err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write file %s: %v", name, err)
+		}
+	}
+
+	// Intentionally missing init.sql / migrate.sql to make hasMigrator = false
+
+	result := ExtractAdvancedArchitecture(dir)
+	if result != "" {
+		t.Errorf("Expected empty string for partial match, got: %v", result)
+	}
+}
+
+func TestExtractAdvancedArchitecture_IgnoredDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	ignoredDir := filepath.Join(dir, "node_modules")
+	err := os.Mkdir(ignoredDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create ignored dir: %v", err)
+	}
+
+	// Create all files inside the ignored directory
+	files := map[string]string{
+		"routes.yaml":        "frontend-nginx-service",
+		"Dockerfile":         "FROM nginx:latest",
+		"package.json":       `{"name": "angular"}`,
+		"pom.xml":            "<dependencies><dependency><artifactId>spring-boot-starter-web</artifactId></dependency><dependency><artifactId>quarkus</artifactId></dependency></dependencies>",
+		"app.py":             "import flask",
+		"application.yml":    "redis: host\nrabbitmq: host",
+		"docker-compose.yml": "image: postgres",
+		"init.sql":           "CREATE TABLE foo;",
+		"project.csproj":     "<Project></Project>",
+	}
+
+	for name, content := range files {
+		err := os.WriteFile(filepath.Join(ignoredDir, name), []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write file %s: %v", name, err)
+		}
+	}
+
+	result := ExtractAdvancedArchitecture(dir)
+	if result != "" {
+		t.Errorf("Expected empty string because files are in ignored directory, got: %v", result)
 	}
 }
