@@ -437,7 +437,8 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 		}
 
 		ext := filepath.Ext(path)
-		if ext == ".go" || ext == ".js" || ext == ".ts" || ext == ".py" || ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".env" || ext == ".java" || ext == ".kt" || ext == "" {
+		switch ext {
+		case ".go", ".js", ".ts", ".py", ".json", ".yaml", ".yml", ".env", ".java", ".kt", "":
 			info, err := d.Info()
 			if err != nil || info.Size() > 1024*1024 {
 				return nil
