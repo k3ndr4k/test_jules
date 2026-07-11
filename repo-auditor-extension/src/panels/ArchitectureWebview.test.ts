@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as vscode from 'vscode';
-import { ArchitectureWebview } from './ArchitectureWebview';
+import { ArchitectureWebview, getNonce } from './ArchitectureWebview';
 
 jest.mock('vscode', () => ({
     window: {
@@ -100,5 +100,21 @@ describe('ArchitectureWebview', () => {
 
         expect(ArchitectureWebview.currentPanel).toBeUndefined();
         expect(mockPanel.dispose).toHaveBeenCalled();
+    });
+});
+
+describe('getNonce', () => {
+    it('should generate a 32-character hex string', () => {
+        const nonce = getNonce();
+        expect(nonce).toBeDefined();
+        expect(typeof nonce).toBe('string');
+        expect(nonce.length).toBe(32);
+        expect(/^[0-9a-f]{32}$/i.test(nonce)).toBe(true);
+    });
+
+    it('should generate random strings', () => {
+        const nonce1 = getNonce();
+        const nonce2 = getNonce();
+        expect(nonce1).not.toBe(nonce2);
     });
 });

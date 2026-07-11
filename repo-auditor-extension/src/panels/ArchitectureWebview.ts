@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
 
-function getNonce() {
+export function getNonce() {
     return crypto.randomBytes(16).toString('hex');
 }
 
