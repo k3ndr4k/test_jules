@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
@@ -445,22 +444,16 @@ func (a *Analyzer) findDependenciesInRepo(repoPath string, projectNames map[stri
 			}
 
 			func() {
-				file, err := os.Open(filepath.Clean(path))
-				if err != nil {
-					return
-				}
-				defer file.Close()
-
 				if trie != nil {
-					scanner := bufio.NewScanner(file)
-					for scanner.Scan() {
-						line := scanner.Text()
-						matches := trie.MatchString(line)
-						for _, match := range matches {
-							pname := string(match.Match())
-							if pname != myName && !found[pname] {
-								found[pname] = true
-							}
+					content, err := os.ReadFile(filepath.Clean(path))
+					if err != nil {
+						return
+					}
+					matches := trie.Match(content)
+					for _, match := range matches {
+						pname := string(match.Match())
+						if pname != myName && !found[pname] {
+							found[pname] = true
 						}
 					}
 				}
