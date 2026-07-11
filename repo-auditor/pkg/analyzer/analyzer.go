@@ -378,7 +378,7 @@ func (a *Analyzer) analyzeRepository(repoPath string) (*Project, error) {
 		}
 	}
 
-	// Fix placeholder links
+	// Resolve placeholder links
 	for i := range p.Links {
 		if p.Links[i].From == "FRAMEWORK_PLACEHOLDER_REDIS" || p.Links[i].From == "FRAMEWORK_PLACEHOLDER_RABBITMQ" {
 			p.Links[i].From = "Spring"
