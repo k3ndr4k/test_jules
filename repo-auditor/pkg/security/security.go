@@ -15,10 +15,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/viper"
 	"github.com/zricethezav/gitleaks/v8/config"
 	"github.com/zricethezav/gitleaks/v8/detect"
 	"github.com/zricethezav/gitleaks/v8/sources"
-	"github.com/spf13/viper"
 	"sync"
 )
 
@@ -57,6 +57,20 @@ type SecurityReport struct {
 	KubeLinterIssues  []KubeLinterFinding
 	CopyleftLicenses  []CopyleftLicense
 	CycloComplexities []CycloFinding
+}
+
+func (sr *SecurityReport) IsEmpty() bool {
+	return sr.CriticalCount == 0 &&
+		sr.HighCount == 0 &&
+		sr.MediumCount == 0 &&
+		len(sr.GitleaksSecrets) == 0 &&
+		len(sr.HadolintIssues) == 0 &&
+		len(sr.KubeLinterIssues) == 0 &&
+		len(sr.CopyleftLicenses) == 0 &&
+		len(sr.CycloComplexities) == 0 &&
+		!sr.HadolintSkipped &&
+		!sr.KubeLinterSkipped &&
+		!sr.GocycloSkipped
 }
 
 type Vulnerability struct {
