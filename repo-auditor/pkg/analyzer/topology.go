@@ -1,6 +1,8 @@
 package analyzer
 
 import (
+	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,70 +24,74 @@ func ExtractAdvancedArchitecture(rootPath string) string {
 	hasMigrator := false
 
 	// Basic walk
-	filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+	filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
-			name := info.Name()
-			if name == "routes.yaml" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "frontend-nginx-service") {
-					hasTraefik = true
-				}
+
+		if d.IsDir() {
+			if shouldSkipDir(d.Name()) {
+				return filepath.SkipDir
 			}
-			if name == "Dockerfile" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "nginx") {
-					hasNginx = true
-				}
+			return nil
+		}
+
+		if !d.Type().IsRegular() {
+			return nil
+		}
+
+		name := d.Name()
+		switch name {
+		case "routes.yaml":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("frontend-nginx-service")) {
+				hasTraefik = true
 			}
-			if name == "package.json" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "angular") || strings.Contains(content, "frontend-angular") {
-					hasAngular = true
-				}
+		case "Dockerfile":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("nginx")) {
+				hasNginx = true
 			}
-			if name == "pom.xml" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "spring-boot-starter-web") {
-					hasSpring = true
-				}
-				if strings.Contains(content, "io.quarkus") || strings.Contains(content, "quarkus") {
-					hasQuarkus = true
-				}
+		case "package.json":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("angular")) || bytes.Contains(data, []byte("frontend-angular")) {
+				hasAngular = true
 			}
-			if name == "app.py" || name == "requirements.txt" {
-				hasFlask = true
+		case "pom.xml":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("spring-boot-starter-web")) {
+				hasSpring = true
 			}
+			if bytes.Contains(data, []byte("io.quarkus")) || bytes.Contains(data, []byte("quarkus")) {
+				hasQuarkus = true
+			}
+		case "app.py", "requirements.txt":
+			hasFlask = true
+		case "application.yml", "application.yaml":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("redis")) {
+				hasRedis = true
+			}
+			if bytes.Contains(data, []byte("rabbitmq")) {
+				hasRabbitMQ = true
+			}
+		case "docker-compose.yml":
+			data, _ := os.ReadFile(path)
+			if bytes.Contains(data, []byte("postgres")) {
+				hasPostgres = true
+			}
+		case "init.sql", "migrate.sql":
+			hasMigrator = true
+		default:
 			if strings.HasSuffix(name, ".csproj") {
 				hasDotNet = true
 			}
-			if name == "application.yml" || name == "application.yaml" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "redis") {
-					hasRedis = true
-				}
-				if strings.Contains(content, "rabbitmq") {
-					hasRabbitMQ = true
-				}
-			}
-			if name == "docker-compose.yml" {
-				data, _ := os.ReadFile(path)
-				content := string(data)
-				if strings.Contains(content, "postgres") {
-					hasPostgres = true
-				}
-			}
-			if name == "init.sql" || name == "migrate.sql" {
-				hasMigrator = true
-			}
 		}
+
+		if hasTraefik && hasNginx && hasSpring && hasRedis && hasRabbitMQ && hasQuarkus && hasAngular && hasFlask && hasDotNet && hasPostgres && hasMigrator {
+			return filepath.SkipAll
+		}
+
 		return nil
 	})
 
