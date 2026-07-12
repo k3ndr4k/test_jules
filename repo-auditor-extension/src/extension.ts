@@ -43,18 +43,17 @@ export function activate(context: vscode.ExtensionContext) {
                     }
 
                     const mapFilePath = path.join(targetPath, 'architecture_map.md');
-                    if (!fs.existsSync(mapFilePath)) {
-                        vscode.window.showErrorMessage('Auditing completed, but architecture_map.md was not found.');
-                        resolve();
-                        return;
-                    }
 
                     try {
                         const markdownContent = await fs.promises.readFile(mapFilePath, 'utf8');
                         ArchitectureWebview.createOrShow(markdownContent, context.extensionUri);
                         vscode.window.showInformationMessage('Architecture Map generated successfully!');
                     } catch (readError: any) {
-                        vscode.window.showErrorMessage(`Failed to read architecture_map.md: ${readError.message}`);
+                        if (readError.code === 'ENOENT') {
+                            vscode.window.showErrorMessage('Auditing completed, but architecture_map.md was not found.');
+                        } else {
+                            vscode.window.showErrorMessage(`Failed to read architecture_map.md: ${readError.message}`);
+                        }
                     }
                     resolve();
                 });

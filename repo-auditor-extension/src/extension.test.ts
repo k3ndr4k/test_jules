@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as fs from 'fs';
@@ -97,8 +98,6 @@ describe('Extension Activation', () => {
                 callback(null, 'stdout', 'stderr');
             });
 
-            // Mock fs.existsSync to return true
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
             (fs.promises.readFile as jest.Mock).mockResolvedValue('markdown content');
 
             await commandCallback(mockUri);
@@ -118,7 +117,6 @@ describe('Extension Activation', () => {
             (cp.execFile as unknown as jest.Mock).mockImplementation((file, args, options, callback) => {
                 callback(null, '', '');
             });
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
             (fs.promises.readFile as jest.Mock).mockResolvedValue('markdown content');
 
             await commandCallback();
@@ -168,7 +166,7 @@ describe('Extension Activation', () => {
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`Error running repo-auditor: ${error.message}`);
             expect(console.error).toHaveBeenCalledWith('stderr output');
-            expect(fs.existsSync).not.toHaveBeenCalled();
+            expect(fs.promises.readFile).not.toHaveBeenCalled();
         });
 
         it('should handle repo-auditor execution failure with ENOENT (not found)', async () => {
@@ -184,7 +182,7 @@ describe('Extension Activation', () => {
 
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`Error running repo-auditor: ${error.message}`);
             expect(console.error).toHaveBeenCalledWith('');
-            expect(fs.existsSync).not.toHaveBeenCalled();
+            expect(fs.promises.readFile).not.toHaveBeenCalled();
         });
 
         it('should handle missing architecture_map.md after successful execution', async () => {
@@ -193,11 +191,14 @@ describe('Extension Activation', () => {
             (cp.execFile as unknown as jest.Mock).mockImplementation((file, args, options, callback) => {
                 callback(null, '', '');
             });
-            (fs.existsSync as jest.Mock).mockReturnValue(false);
+
+            const noEntError = new Error('ENOENT: no such file or directory');
+            (noEntError as any).code = 'ENOENT';
+            (fs.promises.readFile as jest.Mock).mockRejectedValue(noEntError);
 
             await commandCallback(mockUri);
 
-            expect(fs.existsSync).toHaveBeenCalledWith(path.join('/test/path', 'architecture_map.md'));
+            expect(fs.promises.readFile).toHaveBeenCalledWith(path.join('/test/path', 'architecture_map.md'), 'utf8');
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Auditing completed, but architecture_map.md was not found.');
             expect(ArchitectureWebview.createOrShow).not.toHaveBeenCalled();
         });
@@ -209,7 +210,6 @@ describe('Extension Activation', () => {
             (cp.execFile as unknown as jest.Mock).mockImplementation((file, args, options, callback) => {
                 callback(null, '', '');
             });
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
             (fs.promises.readFile as jest.Mock).mockRejectedValue(readError);
 
             await commandCallback(mockUri);
@@ -225,7 +225,6 @@ describe('Extension Activation', () => {
             (cp.execFile as unknown as jest.Mock).mockImplementation((file, args, options, callback) => {
                 callback(null, '', '');
             });
-            (fs.existsSync as jest.Mock).mockReturnValue(true);
             (fs.promises.readFile as jest.Mock).mockResolvedValue('dummy markdown');
 
             await commandCallback(mockUri);
