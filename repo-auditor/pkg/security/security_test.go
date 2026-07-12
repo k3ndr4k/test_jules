@@ -162,3 +162,33 @@ echo 'invalid json output'
 		t.Fatalf("Expected 0 issues due to invalid JSON, got %d", len(report.HadolintIssues))
 	}
 }
+
+func TestParsePomLicenses_EdgeCases(t *testing.T) {
+	// Test non-existent file
+	report1 := &SecurityReport{}
+	parsePomLicenses("does-not-exist.xml", report1)
+	if len(report1.CopyleftLicenses) != 0 {
+		t.Errorf("Expected 0 copyleft licenses for non-existent file, got %d", len(report1.CopyleftLicenses))
+	}
+
+	// Test invalid XML
+	tmpDir := t.TempDir()
+	invalidXmlPath := filepath.Join(tmpDir, "invalid-pom.xml")
+	os.WriteFile(invalidXmlPath, []byte("<project><licenses><license><name>GPL-3.0</name></license>"), 0644) // missing closing tags
+
+	report2 := &SecurityReport{}
+	parsePomLicenses(invalidXmlPath, report2)
+	if len(report2.CopyleftLicenses) != 0 {
+		t.Errorf("Expected 0 copyleft licenses for invalid XML, got %d", len(report2.CopyleftLicenses))
+	}
+
+	// Valid XML with copyleft to make sure it works normally
+	validXmlPath := filepath.Join(tmpDir, "valid-pom.xml")
+	os.WriteFile(validXmlPath, []byte("<project><licenses><license><name>GPL-3.0</name></license></licenses></project>"), 0644)
+
+	report3 := &SecurityReport{}
+	parsePomLicenses(validXmlPath, report3)
+	if len(report3.CopyleftLicenses) != 2 { // 1 from tag, 1 from heuristic
+		t.Errorf("Expected 2 copyleft licenses for valid XML (tag + heuristic), got %d", len(report3.CopyleftLicenses))
+	}
+}
