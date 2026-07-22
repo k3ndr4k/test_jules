@@ -63,6 +63,8 @@ func (sr *SecurityReport) IsEmpty() bool {
 	return sr.CriticalCount == 0 &&
 		sr.HighCount == 0 &&
 		sr.MediumCount == 0 &&
+		len(sr.TopVulns) == 0 &&
+		len(sr.SecretsAndIaC) == 0 &&
 		len(sr.GitleaksSecrets) == 0 &&
 		len(sr.HadolintIssues) == 0 &&
 		len(sr.KubeLinterIssues) == 0 &&
