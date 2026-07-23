@@ -193,6 +193,37 @@ func TestParsePomLicenses_EdgeCases(t *testing.T) {
 	}
 }
 
+func TestClassifyLicense(t *testing.T) {
+	tests := []struct {
+		name     string
+		license  string
+		expected string
+	}{
+		// Copyleft licenses
+		{"Uppercase GPL", "GPL", "RISQUE CRITIQUE (Copyleft)"},
+		{"Lowercase GPL", "gpl", "RISQUE CRITIQUE (Copyleft)"},
+		{"AGPL", "AGPL", "RISQUE CRITIQUE (Copyleft)"},
+		{"LGPL", "LGPL", "RISQUE CRITIQUE (Copyleft)"},
+		{"GPL with version", "GPL-3.0", "RISQUE CRITIQUE (Copyleft)"},
+		{"GPL inside text", "GNU General Public License (GPL)", "RISQUE CRITIQUE (Copyleft)"},
+
+		// Safe licenses
+		{"MIT", "MIT", "Sûr"},
+		{"Apache", "Apache-2.0", "Sûr"},
+		{"BSD", "BSD", "Sûr"},
+		{"Empty string", "", "Sûr"},
+		{"Safe mock license", "Safe License", "Sûr"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyLicense(tt.license); got != tt.expected {
+				t.Errorf("classifyLicense(%q) = %q, want %q", tt.license, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestSecurityReport_IsEmpty(t *testing.T) {
 	tests := []struct {
 		name     string
