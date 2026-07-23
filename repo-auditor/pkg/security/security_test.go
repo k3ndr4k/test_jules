@@ -192,3 +192,75 @@ func TestParsePomLicenses_EdgeCases(t *testing.T) {
 		t.Errorf("Expected 2 copyleft licenses for valid XML (tag + heuristic), got %d", len(report3.CopyleftLicenses))
 	}
 }
+
+func TestSecurityReport_IsEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		report   SecurityReport
+		expected bool
+	}{
+		{
+			name:     "Empty report",
+			report:   SecurityReport{},
+			expected: true,
+		},
+		{
+			name:     "Non-empty CriticalCount",
+			report:   SecurityReport{CriticalCount: 1},
+			expected: false,
+		},
+		{
+			name:     "Non-empty HighCount",
+			report:   SecurityReport{HighCount: 1},
+			expected: false,
+		},
+		{
+			name:     "Non-empty MediumCount",
+			report:   SecurityReport{MediumCount: 1},
+			expected: false,
+		},
+		{
+			name:     "Non-empty TopVulns",
+			report:   SecurityReport{TopVulns: []Vulnerability{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty SecretsAndIaC",
+			report:   SecurityReport{SecretsAndIaC: []SecretOrIaC{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty GitleaksSecrets",
+			report:   SecurityReport{GitleaksSecrets: []GitleaksFinding{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty HadolintIssues",
+			report:   SecurityReport{HadolintIssues: []HadolintFinding{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty KubeLinterIssues",
+			report:   SecurityReport{KubeLinterIssues: []KubeLinterFinding{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty CopyleftLicenses",
+			report:   SecurityReport{CopyleftLicenses: []CopyleftLicense{{}}},
+			expected: false,
+		},
+		{
+			name:     "Non-empty CycloComplexities",
+			report:   SecurityReport{CycloComplexities: []CycloFinding{{}}},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.report.IsEmpty(); got != tt.expected {
+				t.Errorf("SecurityReport.IsEmpty() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
