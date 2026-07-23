@@ -78,18 +78,20 @@ export class ArchitectureWebview {
         // Simple extraction of mermaid blocks
         const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
         let match;
-        const diagrams: string[] = [];
+
+        let mermaidBlocksHtml = '';
+        let count = 0;
 
         while ((match = mermaidRegex.exec(markdownContent)) !== null) {
-            diagrams.push(match[1].trim());
+            if (count !== 0) {
+                mermaidBlocksHtml += '\n';
+            }
+            mermaidBlocksHtml += `<div class="diagram-container">
+                <h3>Diagram ${count + 1}</h3>
+                <div class="mermaid">${this._escapeHtml(match[1].trim())}</div>
+            </div>`;
+            count++;
         }
-
-        const mermaidBlocksHtml = diagrams.map((d, index) =>
-            `<div class="diagram-container">
-                <h3>Diagram ${index + 1}</h3>
-                <div class="mermaid">${this._escapeHtml(d)}</div>
-            </div>`
-        ).join('\n');
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -142,7 +144,7 @@ export class ArchitectureWebview {
     </div>
 
     <div id="content">
-        ${diagrams.length > 0 ? mermaidBlocksHtml : '<p>No Mermaid diagrams found in the generated markdown.</p>'}
+        ${count > 0 ? mermaidBlocksHtml : '<p>No Mermaid diagrams found in the generated markdown.</p>'}
     </div>
     <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
