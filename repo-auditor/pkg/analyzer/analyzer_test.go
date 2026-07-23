@@ -197,3 +197,47 @@ func TestMapDependencies_Empty(t *testing.T) {
 	a.mapDependencies([]*Project{})
 	a.mapDependencies(nil)
 }
+
+func TestNewAnalyzer(t *testing.T) {
+	tests := []struct {
+		name           string
+		rootPath       string
+		concurrency    int
+		expectedPath   string
+		expectedConcur int
+	}{
+		{
+			name:           "positive concurrency",
+			rootPath:       "/tmp/test",
+			concurrency:    10,
+			expectedPath:   "/tmp/test",
+			expectedConcur: 10,
+		},
+		{
+			name:           "zero concurrency defaults to 4",
+			rootPath:       "/tmp/test2",
+			concurrency:    0,
+			expectedPath:   "/tmp/test2",
+			expectedConcur: 4,
+		},
+		{
+			name:           "negative concurrency defaults to 4",
+			rootPath:       "/tmp/test3",
+			concurrency:    -5,
+			expectedPath:   "/tmp/test3",
+			expectedConcur: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := NewAnalyzer(tt.rootPath, tt.concurrency)
+			if a.RootPath != tt.expectedPath {
+				t.Errorf("Expected RootPath %s, got %s", tt.expectedPath, a.RootPath)
+			}
+			if a.Concurrency != tt.expectedConcur {
+				t.Errorf("Expected Concurrency %d, got %d", tt.expectedConcur, a.Concurrency)
+			}
+		})
+	}
+}
