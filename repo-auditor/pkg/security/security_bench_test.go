@@ -8,41 +8,12 @@ import (
 func BenchmarkParseTrivyReport(b *testing.B) {
 	// We have to build TrivyOutput according to its inline struct definition
 	var trivyOut TrivyOutput
-	trivyOut.Results = make([]struct {
-		Target          string `json:"Target"`
-		Class           string `json:"Class"`
-		Vulnerabilities []struct {
-			VulnerabilityID string `json:"VulnerabilityID"`
-			PkgName         string `json:"PkgName"`
-			Severity        string `json:"Severity"`
-			Title           string `json:"Title"`
-			Description     string `json:"Description"`
-		} `json:"Vulnerabilities"`
-		Misconfigurations []struct {
-			Type        string `json:"Type"`
-			ID          string `json:"ID"`
-			Title       string `json:"Title"`
-			Description string `json:"Description"`
-			Severity    string `json:"Severity"`
-		} `json:"Misconfigurations"`
-		Secrets []struct {
-			RuleID   string `json:"RuleID"`
-			Category string `json:"Category"`
-			Title    string `json:"Title"`
-			Severity string `json:"Severity"`
-		} `json:"Secrets"`
-	}, 100)
+	trivyOut.Results = make([]TrivyResult, 100)
 
 	for i := 0; i < 100; i++ {
 		trivyOut.Results[i].Target = fmt.Sprintf("target-%d", i)
 
-		vulns := make([]struct {
-			VulnerabilityID string `json:"VulnerabilityID"`
-			PkgName         string `json:"PkgName"`
-			Severity        string `json:"Severity"`
-			Title           string `json:"Title"`
-			Description     string `json:"Description"`
-		}, 50)
+		vulns := make([]TrivyVulnerability, 50)
 		for j := 0; j < 50; j++ {
 			vid := fmt.Sprintf("CVE-202X-%d", j%10)
 			severity := "MEDIUM"

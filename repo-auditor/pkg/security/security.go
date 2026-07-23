@@ -123,31 +123,39 @@ type CycloFinding struct {
 	Score    int
 }
 
+type TrivyVulnerability struct {
+	VulnerabilityID string `json:"VulnerabilityID"`
+	PkgName         string `json:"PkgName"`
+	Severity        string `json:"Severity"`
+	Title           string `json:"Title"`
+	Description     string `json:"Description"`
+}
+
+type TrivyMisconfiguration struct {
+	Type        string `json:"Type"`
+	ID          string `json:"ID"`
+	Title       string `json:"Title"`
+	Description string `json:"Description"`
+	Severity    string `json:"Severity"`
+}
+
+type TrivySecret struct {
+	RuleID   string `json:"RuleID"`
+	Category string `json:"Category"`
+	Title    string `json:"Title"`
+	Severity string `json:"Severity"`
+}
+
+type TrivyResult struct {
+	Target            string                  `json:"Target"`
+	Class             string                  `json:"Class"`
+	Vulnerabilities   []TrivyVulnerability    `json:"Vulnerabilities"`
+	Misconfigurations []TrivyMisconfiguration `json:"Misconfigurations"`
+	Secrets           []TrivySecret           `json:"Secrets"`
+}
+
 type TrivyOutput struct {
-	Results []struct {
-		Target          string `json:"Target"`
-		Class           string `json:"Class"`
-		Vulnerabilities []struct {
-			VulnerabilityID string `json:"VulnerabilityID"`
-			PkgName         string `json:"PkgName"`
-			Severity        string `json:"Severity"`
-			Title           string `json:"Title"`
-			Description     string `json:"Description"`
-		} `json:"Vulnerabilities"`
-		Misconfigurations []struct {
-			Type        string `json:"Type"`
-			ID          string `json:"ID"`
-			Title       string `json:"Title"`
-			Description string `json:"Description"`
-			Severity    string `json:"Severity"`
-		} `json:"Misconfigurations"`
-		Secrets []struct {
-			RuleID   string `json:"RuleID"`
-			Category string `json:"Category"`
-			Title    string `json:"Title"`
-			Severity string `json:"Severity"`
-		} `json:"Secrets"`
-	} `json:"Results"`
+	Results []TrivyResult `json:"Results"`
 }
 
 func RunTrivyScan(targetDir string, report *SecurityReport) {
