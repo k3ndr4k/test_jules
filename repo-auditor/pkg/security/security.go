@@ -172,7 +172,9 @@ func RunTrivyScan(targetDir string, report *SecurityReport) {
 	reportFile := filepath.Join(absTargetDir, "trivy_report.json")
 	cmd := exec.Command(path, "fs", "--format", "json", "--output", reportFile, "--", absTargetDir)
 	cmd.Dir = absTargetDir
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return
+	}
 
 	defer os.Remove(reportFile)
 
