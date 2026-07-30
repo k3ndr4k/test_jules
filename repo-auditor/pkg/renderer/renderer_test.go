@@ -351,3 +351,21 @@ func TestGenerateMarkdown_NoDependenciesOrLinks(t *testing.T) {
 		t.Errorf("Missing 'No dependencies detected' comment for isolated project")
 	}
 }
+
+func TestGenerateMarkdown_ReadOnlyDirError(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Make directory read-only
+	err := os.Chmod(tempDir, 0555)
+	if err != nil {
+		t.Fatalf("Failed to make directory read-only: %v", err)
+	}
+	defer os.Chmod(tempDir, 0755) // Restore permissions for test cleanup
+
+	err = GenerateMarkdown(nil, nil, "", tempDir)
+	if err == nil {
+		t.Errorf("Expected error for read-only output directory, got nil")
+	} else if !strings.Contains(err.Error(), "failed to create output file") {
+		t.Errorf("Expected 'failed to create output file' error, got: %v", err)
+	}
+}
