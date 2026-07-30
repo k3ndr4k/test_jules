@@ -51,5 +51,5 @@ graph LR
 
 | Fichier | Fonction | Score de Complexité |
 |---------|----------|---------------------|
-| go-complex/main.go | UltraComplexFunction | 26 ⚠️ |
+| go-complex/main.go | ultraComplexFunction | 26 ⚠️ |
 | go-complex/main.go | main | 1 |

@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-func UltraComplexFunction(a, b, c int) {
+func ultraComplexFunction(a, b, c int) {
 	if a > 0 {
 		for i := 0; i < a; i++ {
 			if b > i || c < i && (a+b) > 0 {
@@ -47,5 +47,5 @@ func UltraComplexFunction(a, b, c int) {
 }
 
 func main() {
-	UltraComplexFunction(10, 2, 5)
+	ultraComplexFunction(10, 2, 5)
 }

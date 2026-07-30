@@ -46,7 +46,7 @@ func TestExpectedArchitectureMapMatches(t *testing.T) {
 			{Language: "Java", Dependency: "Root Pom License", License: "GPL-3.0", Status: "RISQUE CRITIQUE (Copyleft)"},
 		},
 		CycloComplexities: []security.CycloFinding{
-			{File: "go-complex/main.go", Function: "UltraComplexFunction", Score: 26},
+			{File: "go-complex/main.go", Function: "ultraComplexFunction", Score: 26},
 			{File: "go-complex/main.go", Function: "main", Score: 1},
 		},
 		GocycloSkipped: true,
@@ -225,7 +225,7 @@ func TestGenerateMarkdown_FullSecReport(t *testing.T) {
 			{Language: "Java", Dependency: "Root Pom License", License: "GPL-3.0", Status: "RISQUE CRITIQUE (Copyleft)"},
 		},
 		CycloComplexities: []security.CycloFinding{
-			{File: "go-complex/main.go", Function: "UltraComplexFunction", Score: 26},
+			{File: "go-complex/main.go", Function: "ultraComplexFunction", Score: 26},
 		},
 	}
 
@@ -261,7 +261,7 @@ func TestGenerateMarkdown_FullSecReport(t *testing.T) {
 	if !strings.Contains(strData, "Root Pom License | Java | GPL-3.0 | **RISQUE CRITIQUE (Copyleft)**") {
 		t.Errorf("Missing CopyleftLicenses")
 	}
-	if !strings.Contains(strData, "go-complex/main.go | UltraComplexFunction | 26 ⚠️") {
+	if !strings.Contains(strData, "go-complex/main.go | ultraComplexFunction | 26 ⚠️") {
 		t.Errorf("Missing CycloComplexities")
 	}
 }

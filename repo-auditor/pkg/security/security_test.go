@@ -58,16 +58,16 @@ func TestGocycloASTFallbackFromFixture(t *testing.T) {
 
 	foundComplex := false
 	for _, c := range report.CycloComplexities {
-		if strings.Contains(c.Function, "UltraComplexFunction") {
+		if strings.Contains(c.Function, "ultraComplexFunction") {
 			if c.Score < 15 {
-				t.Errorf("Expected UltraComplexFunction to have score > 15, got %d", c.Score)
+				t.Errorf("Expected ultraComplexFunction to have score > 15, got %d", c.Score)
 			}
 			foundComplex = true
 		}
 	}
 
 	if !foundComplex {
-		t.Errorf("Did not find 'UltraComplexFunction' in complexities")
+		t.Errorf("Did not find 'ultraComplexFunction' in complexities")
 	}
 }
 
