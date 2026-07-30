@@ -25,7 +25,7 @@ async function benchmark() {
         try {
             await fs.promises.readFile(filePath, 'utf8');
         } catch (e) {
-            // handle error
+            if (e.code !== 'ENOENT') throw e;
         }
     }
     let endAsync = performance.now();
@@ -70,7 +70,9 @@ async function benchmark() {
         for (let i = 0; i < iters; i++) {
             try {
                 await fs.promises.readFile(filePath, 'utf8');
-            } catch (e) { }
+            } catch (e) {
+                if (e.code !== 'ENOENT') throw e;
+            }
         }
         return performance.now() - start;
     };
