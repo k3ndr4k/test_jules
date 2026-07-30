@@ -7,11 +7,14 @@ async function benchmark() {
 
     const iters = 10000;
 
-    // Test 1: existsSync + readFile
+    // Test 1: access + readFile
     let startSync = performance.now();
     for (let i = 0; i < iters; i++) {
-        if (fs.existsSync(filePath)) {
+        try {
+            await fs.promises.access(filePath);
             await fs.promises.readFile(filePath, 'utf8');
+        } catch (e) {
+            if (e.code !== 'ENOENT') throw e;
         }
     }
     let endSync = performance.now();
@@ -27,7 +30,7 @@ async function benchmark() {
     }
     let endAsync = performance.now();
 
-    console.log(`Throughput (ms) - existsSync + readFile: ${(endSync - startSync).toFixed(2)}`);
+    console.log(`Throughput (ms) - access + readFile: ${(endSync - startSync).toFixed(2)}`);
     console.log(`Throughput (ms) - readFile only: ${(endAsync - startAsync).toFixed(2)}`);
 
     // Let's also check Event Loop block time by having a setInterval
@@ -52,8 +55,11 @@ async function benchmark() {
     const testSync = async () => {
         const start = performance.now();
         for (let i = 0; i < iters; i++) {
-            if (fs.existsSync(filePath)) {
+            try {
+                await fs.promises.access(filePath);
                 await fs.promises.readFile(filePath, 'utf8');
+            } catch (e) {
+                if (e.code !== 'ENOENT') throw e;
             }
         }
         return performance.now() - start;
